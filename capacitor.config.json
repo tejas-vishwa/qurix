@@ -4,9 +4,10 @@
   "webDir": "public",
   "bundledWebRuntime": false,
   "server": {
-    "url": "https://biobytes.vercel.app",
+    "url": "https://qurix.vercel.app",
     "cleartext": true,
     "allowNavigation": [
+      "qurix.vercel.app",
       "biobytes.vercel.app",
       "*.vercel.app"
     ]

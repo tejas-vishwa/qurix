@@ -1,7 +1,7 @@
 # QURIX | Intelligent Health Tracker
 
-- **GitHub Repository**: [https://github.com/tejas-vishwa/biobytes](https://github.com/tejas-vishwa/biobytes)
-- **Vercel Deployment**: [https://vercel.com/tejas-vishwas-projects/biobytes](https://vercel.com/tejas-vishwas-projects/biobytes)
+- **GitHub Repository**: [https://github.com/tejas-vishwa/qurix](https://github.com/tejas-vishwa/qurix)
+- **Vercel Deployment**: [https://vercel.com/tejas-vishwas-projects/qurix](https://vercel.com/tejas-vishwas-projects/qurix)
 
 This is the official **QURIX** application built with Next.js App Router, Prisma, and Tailwind CSS.
 

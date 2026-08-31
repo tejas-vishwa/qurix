@@ -8,29 +8,42 @@ import { seedDatabase } from "@/lib/seed-db"
 import { checkAuthLimit, recordAuthFailure, recordAuthSuccess, getClientIp } from "@/lib/rate-limit"
 import { sendMagicLinkEmail } from "@/lib/mailersend"
 
-if (!process.env.NEXTAUTH_SECRET && process.env.NODE_ENV !== "production") {
-  process.env.NEXTAUTH_SECRET = "dev-secret-change-in-production-32chars"
-}
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || "qurix-default-secure-nextauth-encryption-secret-key-32-chars-minimum"
+process.env.NEXTAUTH_SECRET = NEXTAUTH_SECRET
 
-if (!process.env.NEXTAUTH_URL && process.env.VERCEL_URL) {
-  process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`
+if (!process.env.NEXTAUTH_URL) {
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  } else if (process.env.VERCEL_URL) {
+    process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`
+  } else {
+    process.env.NEXTAUTH_URL = "http://localhost:3000"
+  }
 }
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
     signIn: "/login",
+    error: "/login",
     verifyRequest: "/login?verify=true",
   },
   providers: [
     EmailProvider({
-      server: {}, // Custom transport handled directly via MailerSend Node SDK
-      from: process.env.MAILERSEND_FROM_EMAIL || "noreply@qurix.health",
+      server: {
+        host: process.env.SMTP_HOST || "localhost",
+        port: Number(process.env.SMTP_PORT) || 25,
+        auth: {
+          user: process.env.EMAIL_USER || process.env.SMTP_USER || "",
+          pass: process.env.EMAIL_PASS || process.env.SMTP_PASS || "",
+        },
+      },
+      from: process.env.EMAIL_USER || process.env.MAILERSEND_FROM_EMAIL || "noreply@qurix.health",
       async sendVerificationRequest({ identifier: to, url }) {
         const { host } = new URL(url)
         await sendMagicLinkEmail({ to, url, host })

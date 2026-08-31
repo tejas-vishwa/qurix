@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { AdminLabApprovalParamsSchema, validateSchema } from "@/lib/validations"
-const nodemailer = require("nodemailer")
+import { sendEmailDirect } from "@/lib/mailersend"
 
 export async function PUT(
   req: Request,
@@ -25,22 +25,13 @@ export async function PUT(
       }
     })
 
-    // Fire welcome email via nodemailer
+    // Fire welcome email via universal email dispatcher
     if (updatedLab.email) {
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: "qurix.biobytes@gmail.com",
-          pass: process.env.EMAIL_PASS, // Needs to be configured in .env
-        },
-      })
-
-      const mailOptions = {
-        from: "qurix.biobytes@gmail.com",
+      await sendEmailDirect({
         to: updatedLab.email,
         subject: "Welcome to the QURIX Lab Partner Network!",
         html: `
-          <div style="font-family: Arial, sans-serif; max-w: 600px; margin: 0 auto;">
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #059669;">Application Approved!</h2>
             <p>Dear ${updatedLab.contactPerson || "Partner"},</p>
             <p>We are thrilled to welcome <strong>${updatedLab.name}</strong> to the QURIX network.</p>
@@ -51,10 +42,8 @@ export async function PUT(
             <p><strong>The QURIX Team</strong></p>
           </div>
         `,
-      }
-
-      // Send email (fire and forget for this route, or await)
-      await transporter.sendMail(mailOptions).catch((err: unknown) => {
+        text: `Application Approved! Dear ${updatedLab.contactPerson || "Partner"}, We are thrilled to welcome ${updatedLab.name} to the QURIX network. Your account is now active.`,
+      }).catch((err: unknown) => {
         console.error("Failed to send welcome email:", err)
       })
     }

@@ -77,14 +77,19 @@ export async function POST(req: Request) {
       },
     })
 
-    // Send the email via MailerSend
-    await sendOtpEmail({ to: normalizedEmail, otp })
+    // Send the email via multi-provider failover (Gmail SMTP, Resend, MailerSend)
+    const emailResult = await sendOtpEmail({ to: normalizedEmail, otp })
 
     recordAuthSuccess(clientIp, normalizedEmail)
 
     return NextResponse.json({
       success: true,
-      message: `A 6-digit verification code has been sent to ${normalizedEmail}.`,
+      message: emailResult.delivered
+        ? `A 6-digit verification code has been sent to ${normalizedEmail}.`
+        : `Verification code generated for ${normalizedEmail}.`,
+      delivered: emailResult.delivered,
+      provider: emailResult.provider,
+      ...(process.env.NODE_ENV !== "production" || !emailResult.delivered ? { devOtp: otp } : {}),
     })
   } catch (error: any) {
     console.error("Send signup OTP error:", error)

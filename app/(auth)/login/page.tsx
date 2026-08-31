@@ -37,6 +37,7 @@ export default function LoginPage() {
   const [otpError, setOtpError] = useState("")
   const [resendTimer, setResendTimer] = useState(0)
   const [resending, setResending] = useState(false)
+  const [devOtp, setDevOtp] = useState("")
 
   // Magic Link fallback states
   const [magicSent, setMagicSent] = useState(false)
@@ -118,6 +119,11 @@ export default function LoginPage() {
       setOtpStep("VERIFY")
       setResendTimer(60)
       setOtpCode("")
+      if (data.devOtp) {
+        setDevOtp(data.devOtp)
+      } else {
+        setDevOtp("")
+      }
     } catch (err: any) {
       setOtpError(err.message)
     } finally {
@@ -144,6 +150,9 @@ export default function LoginPage() {
       }
 
       setResendTimer(60)
+      if (data.devOtp) {
+        setDevOtp(data.devOtp)
+      }
     } catch (err: any) {
       setOtpError(err.message)
     } finally {
@@ -442,6 +451,13 @@ export default function LoginPage() {
                         <strong className="text-foreground font-medium">{otpEmail}</strong>
                       </p>
                     </div>
+
+                    {devOtp && (
+                      <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs p-3 rounded-xl text-center">
+                        <p className="font-semibold mb-1">Development / Demo Code:</p>
+                        <span className="font-mono font-bold text-base tracking-widest bg-background/80 px-3 py-1 rounded-md border border-emerald-500/30">{devOtp}</span>
+                      </div>
+                    )}
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium leading-none text-center block" htmlFor="otp-code">

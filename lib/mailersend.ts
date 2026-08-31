@@ -1,7 +1,5 @@
+import nodemailer from "nodemailer"
 import { MailerSend, EmailParams, Sender, Recipient } from "mailersend"
-
-const apiKey = process.env.MAILERSEND_API_KEY || ""
-const mailerSend = new MailerSend({ apiKey })
 
 export interface MagicLinkEmailParams {
   to: string
@@ -9,8 +7,14 @@ export interface MagicLinkEmailParams {
   host: string
 }
 
+export interface SendEmailResult {
+  delivered: boolean
+  provider?: "gmail" | "smtp" | "mailersend" | "resend" | "dev"
+  error?: string
+}
+
 /**
- * Clean & Professional HTML Magic Link Template for QURIX / BioBytes
+ * Clean & Professional HTML Magic Link Template for QURIX
  */
 export function generateMagicLinkHtml({ url, host }: { url: string; host: string }): string {
   const brandColor = "#059669"
@@ -22,7 +26,7 @@ export function generateMagicLinkHtml({ url, host }: { url: string; host: string
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign in to QURIX BioBytes</title>
+  <title>Sign in to QURIX</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 40px 20px;">
@@ -32,7 +36,7 @@ export function generateMagicLinkHtml({ url, host }: { url: string; host: string
           <!-- Header -->
           <tr>
             <td align="center" style="padding-bottom: 24px;">
-              <h1 style="margin: 0; color: #0f172a; font-size: 24px; font-weight: 700;">QURIX BioBytes</h1>
+              <h1 style="margin: 0; color: #0f172a; font-size: 24px; font-weight: 700;">QURIX</h1>
               <p style="margin: 4px 0 0 0; color: #64748b; font-size: 14px;">Secure Passwordless Sign-In</p>
             </td>
           </tr>
@@ -48,7 +52,7 @@ export function generateMagicLinkHtml({ url, host }: { url: string; host: string
           <tr>
             <td align="center" style="padding-bottom: 28px;">
               <a href="${url}" target="_blank" style="display: inline-block; background-color: ${brandColor}; color: ${buttonTextColor}; font-size: 15px; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-                Sign In to BioBytes
+                Sign In to QURIX
               </a>
             </td>
           </tr>
@@ -77,36 +81,7 @@ export function generateMagicLinkHtml({ url, host }: { url: string; host: string
 }
 
 /**
- * Sends a passwordless sign-in magic link using MailerSend Node SDK
- */
-export async function sendMagicLinkEmail({ to, url, host }: MagicLinkEmailParams): Promise<void> {
-  const fromEmail = process.env.MAILERSEND_FROM_EMAIL || "noreply@qurix.health"
-  const fromName = process.env.MAILERSEND_FROM_NAME || "QURIX BioBytes"
-
-  if (!process.env.MAILERSEND_API_KEY) {
-    console.warn("MAILERSEND_API_KEY is not configured. Magic link URL for local development:", url)
-    return
-  }
-
-  const sentFrom = new Sender(fromEmail, fromName)
-  const recipients = [new Recipient(to, to)]
-
-  const emailHtml = generateMagicLinkHtml({ url, host })
-  const emailText = `Sign in to QURIX BioBytes (${host})\n\nClick the link below to sign in:\n${url}\n\nIf you did not request this email, you can safely ignore it.`
-
-  const emailParams = new EmailParams()
-    .setFrom(sentFrom)
-    .setTo(recipients)
-    .setReplyTo(sentFrom)
-    .setSubject(`Your Magic Sign-In Link for QURIX BioBytes`)
-    .setHtml(emailHtml)
-    .setText(emailText)
-
-  await mailerSend.email.send(emailParams)
-}
-
-/**
- * Clean & High-Contrast HTML OTP Email Template for QURIX / BioBytes
+ * Clean & High-Contrast HTML OTP Email Template for QURIX
  */
 export function generateOtpHtml({ otp }: { otp: string }): string {
   const brandColor = "#059669"
@@ -117,7 +92,7 @@ export function generateOtpHtml({ otp }: { otp: string }): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your BioBytes Verification Code</title>
+  <title>Your QURIX Verification Code</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 40px 20px;">
@@ -127,7 +102,7 @@ export function generateOtpHtml({ otp }: { otp: string }): string {
           <!-- Header -->
           <tr>
             <td style="padding-bottom: 20px;">
-              <h1 style="margin: 0; color: #0f172a; font-size: 24px; font-weight: 700;">QURIX BioBytes</h1>
+              <h1 style="margin: 0; color: #0f172a; font-size: 24px; font-weight: 700;">QURIX</h1>
               <p style="margin: 4px 0 0 0; color: #64748b; font-size: 14px;">Email Verification Code</p>
             </td>
           </tr>
@@ -135,7 +110,7 @@ export function generateOtpHtml({ otp }: { otp: string }): string {
           <!-- Message -->
           <tr>
             <td style="color: #334155; font-size: 15px; line-height: 22px; padding-bottom: 24px;">
-              Please use the verification code below to verify your email address and complete your account creation:
+              Please use the 6-digit verification code below to verify your email address and continue:
             </td>
           </tr>
 
@@ -160,7 +135,7 @@ export function generateOtpHtml({ otp }: { otp: string }): string {
           <!-- Security Footer -->
           <tr>
             <td style="border-top: 1px solid #f1f5f9; padding-top: 20px; color: #94a3b8; font-size: 12px; line-height: 18px;">
-              Never share this verification code with anyone. BioBytes staff will never ask for your code.
+              Never share this verification code with anyone. QURIX staff will never ask for your code.
             </td>
           </tr>
         </table>
@@ -173,30 +148,151 @@ export function generateOtpHtml({ otp }: { otp: string }): string {
 }
 
 /**
- * Sends a 6-digit OTP verification code via MailerSend Node SDK
+ * Universal Multi-Provider Email Sender
+ * Tries: Gmail SMTP -> Custom SMTP -> Resend API -> MailerSend -> Dev Fallback
  */
-export async function sendOtpEmail({ to, otp }: { to: string; otp: string }): Promise<void> {
-  const fromEmail = process.env.MAILERSEND_FROM_EMAIL || "noreply@qurix.health"
-  const fromName = process.env.MAILERSEND_FROM_NAME || "QURIX BioBytes"
+export async function sendEmailDirect({
+  to,
+  subject,
+  html,
+  text,
+}: {
+  to: string
+  subject: string
+  html: string
+  text: string
+}): Promise<SendEmailResult> {
+  const errors: string[] = []
 
-  if (!process.env.MAILERSEND_API_KEY) {
-    console.log(`[DEV OTP NOTIFICATION] 6-digit OTP for ${to}: ${otp}`)
-    return
+  // 1. Check Gmail App Password / Nodemailer SMTP
+  const emailUser = process.env.EMAIL_USER || process.env.SMTP_USER
+  const emailPass = process.env.EMAIL_PASS || process.env.SMTP_PASS
+  const smtpHost = process.env.SMTP_HOST
+  const fromName = process.env.MAIL_FROM_NAME || process.env.MAILERSEND_FROM_NAME || "QURIX"
+
+  if (emailUser && emailPass) {
+    try {
+      const transporter = smtpHost
+        ? nodemailer.createTransport({
+            host: smtpHost,
+            port: Number(process.env.SMTP_PORT) || 465,
+            secure: process.env.SMTP_SECURE === "true" || Number(process.env.SMTP_PORT) === 465,
+            auth: { user: emailUser, pass: emailPass },
+          })
+        : nodemailer.createTransport({
+            service: "gmail",
+            auth: { user: emailUser, pass: emailPass },
+          })
+
+      await transporter.sendMail({
+        from: `"${fromName}" <${emailUser}>`,
+        to,
+        subject,
+        html,
+        text,
+      })
+
+      console.log(`[EMAIL DISPATCHED] Successfully sent email to ${to} via SMTP/Gmail (${emailUser})`)
+      return { delivered: true, provider: "gmail" }
+    } catch (err: any) {
+      const msg = `SMTP/Gmail delivery failed: ${err.message}`
+      console.warn(`[EMAIL WARNING] ${msg}`)
+      errors.push(msg)
+    }
   }
 
-  const sentFrom = new Sender(fromEmail, fromName)
-  const recipients = [new Recipient(to, to)]
+  // 2. Check Resend REST API
+  const resendApiKey = process.env.RESEND_API_KEY
+  if (resendApiKey) {
+    try {
+      const resendFrom = process.env.RESEND_FROM || "QURIX <onboarding@resend.dev>"
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: resendFrom,
+          to: [to],
+          subject,
+          html,
+          text,
+        }),
+      })
 
+      if (res.ok) {
+        console.log(`[EMAIL DISPATCHED] Successfully sent email to ${to} via Resend`)
+        return { delivered: true, provider: "resend" }
+      } else {
+        const errorJson = await res.json().catch(() => ({}))
+        const msg = `Resend API failed (${res.status}): ${JSON.stringify(errorJson)}`
+        console.warn(`[EMAIL WARNING] ${msg}`)
+        errors.push(msg)
+      }
+    } catch (err: any) {
+      const msg = `Resend network failure: ${err.message}`
+      console.warn(`[EMAIL WARNING] ${msg}`)
+      errors.push(msg)
+    }
+  }
+
+  // 3. Check MailerSend SDK
+  const mailersendApiKey = process.env.MAILERSEND_API_KEY
+  if (mailersendApiKey) {
+    try {
+      const mailerSend = new MailerSend({ apiKey: mailersendApiKey })
+      const fromEmail = process.env.MAILERSEND_FROM_EMAIL || "noreply@qurix.health"
+      const sentFrom = new Sender(fromEmail, fromName)
+      const recipients = [new Recipient(to, to)]
+
+      const emailParams = new EmailParams()
+        .setFrom(sentFrom)
+        .setTo(recipients)
+        .setReplyTo(sentFrom)
+        .setSubject(subject)
+        .setHtml(html)
+        .setText(text)
+
+      await mailerSend.email.send(emailParams)
+      console.log(`[EMAIL DISPATCHED] Successfully sent email to ${to} via MailerSend (${fromEmail})`)
+      return { delivered: true, provider: "mailersend" }
+    } catch (err: any) {
+      const msg = `MailerSend SDK delivery failed: ${err.message || JSON.stringify(err)}`
+      console.warn(`[EMAIL WARNING] ${msg}`)
+      errors.push(msg)
+    }
+  }
+
+  // 4. Fallback when no provider is active or all fail
+  const summaryError = errors.length > 0
+    ? errors.join(" | ")
+    : "No email provider configured (set EMAIL_USER + EMAIL_PASS for Gmail SMTP, or RESEND_API_KEY, or MAILERSEND_API_KEY)"
+
+  console.warn(`[EMAIL NOTICE] Could not deliver email to ${to}: ${summaryError}`)
+  return { delivered: false, provider: "dev", error: summaryError }
+}
+
+/**
+ * Sends a 6-digit OTP verification code with multi-provider failover
+ */
+export async function sendOtpEmail({ to, otp }: { to: string; otp: string }): Promise<SendEmailResult> {
   const emailHtml = generateOtpHtml({ otp })
-  const emailText = `Your QURIX BioBytes verification code is: ${otp}\n\nThis code expires in 10 minutes. Do not share this code with anyone.`
+  const emailText = `Your QURIX verification code is: ${otp}\n\nThis code expires in 10 minutes. Do not share this code with anyone.`
+  const subject = `${otp} is your QURIX Verification Code`
 
-  const emailParams = new EmailParams()
-    .setFrom(sentFrom)
-    .setTo(recipients)
-    .setReplyTo(sentFrom)
-    .setSubject(`${otp} is your QURIX BioBytes Verification Code`)
-    .setHtml(emailHtml)
-    .setText(emailText)
+  console.log(`[OTP GENERATED] Destination: ${to} | 6-Digit Code: ${otp}`)
+  return await sendEmailDirect({ to, subject, html: emailHtml, text: emailText })
+}
 
-  await mailerSend.email.send(emailParams)
+/**
+ * Sends a passwordless sign-in magic link with multi-provider failover
+ */
+export async function sendMagicLinkEmail({ to, url, host }: MagicLinkEmailParams): Promise<SendEmailResult> {
+  const emailHtml = generateMagicLinkHtml({ url, host })
+  const emailText = `Sign in to QURIX (${host})\n\nClick the link below to sign in:\n${url}\n\nIf you did not request this email, you can safely ignore it.`
+  const subject = `Your Magic Sign-In Link for QURIX`
+
+  console.log(`[MAGIC LINK GENERATED] Destination: ${to} | URL: ${url}`)
+  return await sendEmailDirect({ to, subject, html: emailHtml, text: emailText })
 }

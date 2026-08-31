@@ -33,6 +33,7 @@ export default function RegisterPage() {
   const [otp, setOtp] = useState("")
   const [resendTimer, setResendTimer] = useState(0)
   const [resending, setResending] = useState(false)
+  const [devOtp, setDevOtp] = useState("")
 
   useEffect(() => {
     setNum1(Math.floor(Math.random() * 10) + 1)
@@ -94,6 +95,11 @@ export default function RegisterPage() {
       setStep("OTP")
       setResendTimer(60)
       setOtp("")
+      if (data.devOtp) {
+        setDevOtp(data.devOtp)
+      } else {
+        setDevOtp("")
+      }
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -120,6 +126,9 @@ export default function RegisterPage() {
       }
 
       setResendTimer(60)
+      if (data.devOtp) {
+        setDevOtp(data.devOtp)
+      }
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -361,6 +370,13 @@ export default function RegisterPage() {
                   {error && (
                     <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md text-center">
                       {error}
+                    </div>
+                  )}
+
+                  {devOtp && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs p-3 rounded-xl text-center">
+                      <p className="font-semibold mb-1">Development / Demo Code:</p>
+                      <span className="font-mono font-bold text-base tracking-widest bg-background/80 px-3 py-1 rounded-md border border-emerald-500/30">{devOtp}</span>
                     </div>
                   )}
 

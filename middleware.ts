@@ -92,6 +92,25 @@ async function clerkMiddlewareHandler(req: NextRequest, event: any): Promise<Nex
       userId = null
     }
 
+    const { pathname } = request.nextUrl
+
+    // If an authenticated user visits /login or /register, redirect immediately to their dashboard
+    if (userId && (pathname.startsWith("/login") || pathname.startsWith("/register"))) {
+      let target = "/dashboard"
+      try {
+        const authObj = await auth()
+        const claims = authObj?.sessionClaims as any
+        const role = (claims?.role || claims?.public_metadata?.role || claims?.metadata?.role || "").toUpperCase()
+        if (role === "DOCTOR") {
+          target = "/doctor/dashboard"
+        } else if (role === "ADMIN") {
+          target = "/admin"
+        }
+      } catch {}
+
+      return NextResponse.redirect(new URL(target, request.url))
+    }
+
     const limited = await applyRateLimiting((request as any) || req, !!userId, userId)
     if (limited) {
       return limited

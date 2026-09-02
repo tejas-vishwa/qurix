@@ -44,7 +44,7 @@ export function Navbar() {
             </Link>
           </SignedOut>
           <SignedIn>
-            <Link href="/patient/dashboard">
+            <Link href="/dashboard">
               <Button variant="outline" size="sm" className="font-semibold border-emerald-600/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
                 Dashboard
               </Button>
@@ -133,7 +133,7 @@ export function Navbar() {
               </Link>
             </SignedOut>
             <SignedIn>
-              <Link href="/patient/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
+              <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
                 <Button className="w-full h-12 text-base font-bold justify-center bg-emerald-600 hover:bg-emerald-700 shadow-lg rounded-2xl text-white">
                   Go to Dashboard
                 </Button>

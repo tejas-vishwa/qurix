@@ -1,12 +1,51 @@
 "use client"
 
-import { SignIn, ClerkLoading, ClerkLoaded } from "@clerk/nextjs"
+import { useEffect } from "react"
+import { SignIn, ClerkLoading, ClerkLoaded, useAuth, useUser } from "@clerk/nextjs"
 import { QurixLogo } from "@/components/QurixLogo"
 import { BackButton } from "@/components/BackButton"
 import { Loader2 } from "lucide-react"
 import Link from "next/link"
 
 export default function LoginPage() {
+  const { isLoaded, isSignedIn } = useAuth()
+  const { user } = useUser()
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      const role =
+        (user?.publicMetadata?.role as string)?.toUpperCase() ||
+        (user?.unsafeMetadata?.role as string)?.toUpperCase()
+
+      if (role === "DOCTOR") {
+        window.location.href = "/doctor/dashboard"
+      } else if (role === "ADMIN") {
+        window.location.href = "/admin"
+      } else if (role === "LAB") {
+        window.location.href = "/lab/dashboard"
+      } else {
+        window.location.href = "/dashboard"
+      }
+    }
+  }, [isLoaded, isSignedIn, user])
+
+  if (isLoaded && isSignedIn) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50 dark:bg-slate-950">
+        <div className="w-full max-w-md space-y-6 flex flex-col items-center">
+          <Link href="/" className="flex items-center group transition-transform hover:scale-105">
+            <QurixLogo className="h-10 w-auto" />
+          </Link>
+          <div className="flex flex-col items-center justify-center space-y-3 p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+            <p className="text-base font-semibold text-foreground">Signed in successfully!</p>
+            <p className="text-sm text-muted-foreground">Redirecting to your dashboard...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50 dark:bg-slate-950">
       <div className="w-full max-w-md absolute top-4 left-4">
@@ -45,8 +84,8 @@ export default function LoginPage() {
               routing="path"
               path="/login"
               signUpUrl="/register"
-              forceRedirectUrl="/patient/dashboard"
-              fallbackRedirectUrl="/patient/dashboard"
+              forceRedirectUrl="/dashboard"
+              fallbackRedirectUrl="/dashboard"
             />
           </ClerkLoaded>
         </div>

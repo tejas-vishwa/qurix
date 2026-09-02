@@ -53,9 +53,9 @@ export default function RootLayout({
           dynamic
           signInUrl="/login"
           signUpUrl="/register"
-          fallbackRedirectUrl="/patient/dashboard"
-          signInFallbackRedirectUrl="/patient/dashboard"
-          signUpFallbackRedirectUrl="/patient/dashboard"
+          fallbackRedirectUrl="/dashboard"
+          signInFallbackRedirectUrl="/dashboard"
+          signUpFallbackRedirectUrl="/dashboard"
           appearance={{
             variables: {
               colorPrimary: "#059669",

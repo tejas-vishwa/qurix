@@ -71,7 +71,8 @@
     "unrs-resolver": true,
     "@google/genai": true,
     "@prisma/client": true,
-    "@prisma/engines": true
+    "@prisma/engines": true,
+    "@clerk/shared": true
   },
   "lavamoat": {
     "allowScripts": {
@@ -83,7 +84,8 @@
       "unrs-resolver": true,
       "@google/genai": true,
       "@prisma/client": true,
-      "@prisma/engines": true
+      "@prisma/engines": true,
+      "@clerk/shared": true
     }
   }
 }

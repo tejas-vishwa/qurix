@@ -3,7 +3,7 @@ import { getServerSession as getNextAuthSession } from "next-auth/next"
 import CredentialsProvider from "next-auth/providers/credentials"
 import EmailProvider from "next-auth/providers/email"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
-import { syncClerkUserWithPrisma } from "@/lib/clerk-sync"
+import { syncClerkUserWithPrisma, getCachedSyncedUser } from "@/lib/clerk-sync"
 import { compare } from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { seedDatabase } from "@/lib/seed-db"
@@ -250,36 +250,48 @@ export async function getAuthSession(_options?: any): Promise<AppUserSession | n
       const clerkId = authObj?.userId
 
       if (clerkId) {
-        let primaryEmail = ""
-        let rawName = ""
-        let rawRole = "PATIENT"
-
-        try {
-          const clerkUser = await currentUser()
-          if (clerkUser) {
-            primaryEmail =
-              clerkUser.emailAddresses?.find(
-                (e) => e.id === clerkUser.primaryEmailAddressId
-              )?.emailAddress ||
-              clerkUser.emailAddresses?.[0]?.emailAddress ||
-              ""
-
-            rawName =
-              `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() ||
-              clerkUser.username ||
-              ""
-
-            rawRole = (clerkUser.publicMetadata?.role as string) || "PATIENT"
+        // Fast-path 1: Return immediately from in-memory cache if recently synced
+        const cachedUser = getCachedSyncedUser(clerkId)
+        if (cachedUser) {
+          return {
+            user: {
+              id: cachedUser.id,
+              email: cachedUser.email,
+              name: cachedUser.name,
+              role: cachedUser.role || "PATIENT",
+              subscriptionTier: cachedUser.subscriptionTier || "FREE",
+              paymentStatus: cachedUser.paymentStatus || "NONE",
+            },
           }
-        } catch (uErr) {
-          console.warn("[getAuthSession] currentUser fetch note:", uErr)
         }
 
-        // If primaryEmail wasn't fetched from currentUser, check sessionClaims
-        if (!primaryEmail && authObj?.sessionClaims) {
-          const claims = authObj.sessionClaims as any
-          primaryEmail = claims.email || claims.primary_email || ""
-          rawName = claims.name || claims.full_name || ""
+        const claims = (authObj?.sessionClaims as any) || {}
+        let primaryEmail = claims.email || claims.primary_email || ""
+        let rawName = claims.name || claims.full_name || ""
+        let rawRole = (claims.role || claims.public_metadata?.role || claims.metadata?.role || "PATIENT").toUpperCase()
+
+        // Only make external HTTP request to Clerk if claims do not have the email
+        if (!primaryEmail) {
+          try {
+            const clerkUser = await currentUser()
+            if (clerkUser) {
+              primaryEmail =
+                clerkUser.emailAddresses?.find(
+                  (e) => e.id === clerkUser.primaryEmailAddressId
+                )?.emailAddress ||
+                clerkUser.emailAddresses?.[0]?.emailAddress ||
+                ""
+
+              rawName =
+                `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() ||
+                clerkUser.username ||
+                ""
+
+              rawRole = ((clerkUser.publicMetadata?.role as string) || rawRole).toUpperCase()
+            }
+          } catch (uErr) {
+            console.warn("[getAuthSession] currentUser fetch note:", uErr)
+          }
         }
 
         if (!primaryEmail) {

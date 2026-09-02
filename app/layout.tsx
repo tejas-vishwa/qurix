@@ -50,7 +50,6 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background antialiased flex flex-col font-sans">
         <ClerkProvider
-          dynamic
           signInUrl="/login"
           signUpUrl="/register"
           fallbackRedirectUrl="/dashboard"

@@ -20,35 +20,44 @@ export default async function PatientDashboard() {
 
   let reports: any[] = []
   let recentMetrics: any[] = []
+  let activeCode: any = null
+
+  const ninetyDaysAgo = new Date()
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
 
   try {
-    reports = await prisma.report.findMany({
-      where: { patientId: userId },
-      orderBy: { reportDate: 'desc' },
-      take: 5
-    })
-
-    // 1. Deterministic Rule-Based Engine (90-Day Rule)
-    const ninetyDaysAgo = new Date()
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
-
-    recentMetrics = await prisma.extractedMetric.findMany({
-      where: {
-        report: {
-          patientId: userId,
-          reportDate: { gte: ninetyDaysAgo }
+    const [reportsResult, metricsResult, codeResult] = await Promise.allSettled([
+      prisma.report.findMany({
+        where: { patientId: userId },
+        orderBy: { reportDate: 'desc' },
+        take: 5
+      }),
+      prisma.extractedMetric.findMany({
+        where: {
+          report: {
+            patientId: userId,
+            reportDate: { gte: ninetyDaysAgo }
+          }
+        },
+        include: {
+          biomarker: true,
+          report: true
+        },
+        orderBy: {
+          report: { reportDate: 'desc' }
         }
-      },
-      include: {
-        biomarker: true,
-        report: true
-      },
-      orderBy: {
-        report: { reportDate: 'desc' }
-      }
-    })
+      }),
+      prisma.doctorAccessCode.findFirst({
+        where: { patientId: userId, expiresAt: { gt: new Date() }, isRevoked: false },
+        orderBy: { createdAt: 'desc' }
+      })
+    ])
+
+    if (reportsResult.status === "fulfilled") reports = reportsResult.value
+    if (metricsResult.status === "fulfilled") recentMetrics = metricsResult.value
+    if (codeResult.status === "fulfilled") activeCode = codeResult.value
   } catch (err) {
-    console.error("[PatientDashboard] Error fetching reports/metrics:", err)
+    console.error("[PatientDashboard] Error fetching dashboard data:", err)
   }
 
   let overallStatus = "NORMAL"
@@ -110,15 +119,6 @@ export default async function PatientDashboard() {
     patientSummaryText = "No test results found in the last 90 days. Please upload a recent report to get an automated health summary."
   }
 
-  let activeCode = null
-  try {
-    activeCode = await prisma.doctorAccessCode.findFirst({
-      where: { patientId: userId, expiresAt: { gt: new Date() }, isRevoked: false },
-      orderBy: { createdAt: 'desc' }
-    })
-  } catch (err) {
-    console.error("[PatientDashboard] Error fetching active access code:", err)
-  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">

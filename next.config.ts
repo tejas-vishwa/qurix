@@ -15,6 +15,15 @@ const nextConfig: NextConfig = {
     "unpdf",
     "pdfjs-dist"
   ],
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "date-fns",
+      "@radix-ui/react-slot",
+    ],
+  },
+  compress: true,
+  poweredByHeader: false,
 };
 
 export default nextConfig;

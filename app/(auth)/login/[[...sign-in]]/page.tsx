@@ -13,21 +13,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      const role =
-        (user?.publicMetadata?.role as string)?.toUpperCase() ||
-        (user?.unsafeMetadata?.role as string)?.toUpperCase()
-
-      if (role === "DOCTOR") {
-        window.location.href = "/doctor/dashboard"
-      } else if (role === "ADMIN") {
-        window.location.href = "/admin"
-      } else if (role === "LAB") {
-        window.location.href = "/lab/dashboard"
-      } else {
-        window.location.href = "/dashboard"
-      }
+      window.location.href = "/portal"
     }
-  }, [isLoaded, isSignedIn, user])
+  }, [isLoaded, isSignedIn])
 
   if (isLoaded && isSignedIn) {
     return (

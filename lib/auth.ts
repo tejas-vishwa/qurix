@@ -6,7 +6,6 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { syncClerkUserWithPrisma, getCachedSyncedUser } from "@/lib/clerk-sync"
 import { compare } from "bcryptjs"
 import { prisma } from "@/lib/prisma"
-import { seedDatabase } from "@/lib/seed-db"
 import { checkAuthLimit, recordAuthFailure, recordAuthSuccess, getClientIp } from "@/lib/rate-limit"
 import { sendMagicLinkEmail } from "@/lib/mailersend"
 
@@ -86,20 +85,9 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          // Check if table exists or user exists
-          let user = await prisma.user.findUnique({
+          const user = await prisma.user.findUnique({
             where: { email: emailLower }
-          }).catch(async () => {
-            // If table doesn't exist in Turso, seed the database automatically!
-            await seedDatabase()
-            return await prisma.user.findUnique({ where: { email: emailLower } })
-          })
-
-          // If demo user is missing, attempt auto-seeding
-          if (!user && (emailLower.includes("demo") || emailLower.includes("biobytes") || emailLower.includes("qurix"))) {
-            await seedDatabase()
-            user = await prisma.user.findUnique({ where: { email: emailLower } })
-          }
+          }).catch(() => null)
 
           if (!user) {
             recordAuthFailure(clientIp, emailLower)

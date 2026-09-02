@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma"
-import { seedDatabase } from "@/lib/seed-db"
 
 export interface SyncUserParams {
   clerkId: string
@@ -46,16 +45,9 @@ export async function syncClerkUserWithPrisma({
           { id: clerkId },
         ],
       },
-    }).catch(async () => {
-      await seedDatabase()
-      return await prisma.user.findFirst({
-        where: {
-          OR: [
-            { email: normalizedEmail },
-            { id: clerkId },
-          ],
-        },
-      })
+    }).catch((err) => {
+      console.warn("[syncClerkUserWithPrisma] findFirst error:", err)
+      return null
     })
 
     if (user) {

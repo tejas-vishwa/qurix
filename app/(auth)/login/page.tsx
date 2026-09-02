@@ -37,7 +37,7 @@ export default function LoginPage() {
             routing="path"
             path="/login"
             signUpUrl="/register"
-            fallbackRedirectUrl="/patient/dashboard"
+            forceRedirectUrl="/patient/dashboard"
           />
         </div>
       </div>

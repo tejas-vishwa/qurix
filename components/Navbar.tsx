@@ -36,10 +36,10 @@ export function Navbar() {
         <div className="hidden md:flex items-center space-x-3">
           <ThemeToggle />
           <SignedOut>
-            <SignInButton mode="redirect">
+            <SignInButton mode="redirect" forceRedirectUrl="/patient/dashboard">
               <Button variant="ghost">Sign In</Button>
             </SignInButton>
-            <SignUpButton mode="redirect">
+            <SignUpButton mode="redirect" forceRedirectUrl="/patient/dashboard">
               <Button className="shadow-lg shadow-primary/20 bg-emerald-600 hover:bg-emerald-700">Get Started</Button>
             </SignUpButton>
           </SignedOut>
@@ -116,12 +116,12 @@ export function Navbar() {
 
           <div className="border-t border-border/60 pt-6 mt-6 flex flex-col space-y-3">
             <SignedOut>
-              <SignInButton mode="redirect">
+              <SignInButton mode="redirect" forceRedirectUrl="/patient/dashboard">
                 <Button variant="outline" className="w-full h-12 text-base font-bold justify-center rounded-2xl">
                   Sign In
                 </Button>
               </SignInButton>
-              <SignUpButton mode="redirect">
+              <SignUpButton mode="redirect" forceRedirectUrl="/patient/dashboard">
                 <Button className="w-full h-12 text-base font-bold justify-center bg-emerald-600 hover:bg-emerald-700 shadow-lg rounded-2xl text-white">
                   Get Started Free
                 </Button>

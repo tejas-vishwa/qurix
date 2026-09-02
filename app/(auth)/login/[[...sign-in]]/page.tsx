@@ -1,8 +1,9 @@
 "use client"
 
-import { SignIn } from "@clerk/nextjs"
+import { SignIn, ClerkLoading, ClerkLoaded } from "@clerk/nextjs"
 import { QurixLogo } from "@/components/QurixLogo"
 import { BackButton } from "@/components/BackButton"
+import { Loader2 } from "lucide-react"
 import Link from "next/link"
 
 export default function LoginPage() {
@@ -18,27 +19,36 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        <div className="w-full flex justify-center">
-          <SignIn
-            appearance={{
-              layout: {
-                socialButtonsPlacement: "bottom",
-                logoPlacement: "none",
-              },
-              elements: {
-                card: "shadow-lg border border-slate-200 dark:border-slate-800 rounded-2xl bg-card p-6",
-                formButtonPrimary: "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl py-3 shadow-md shadow-emerald-600/20 transition-all",
-                footerActionLink: "text-emerald-600 dark:text-emerald-400 hover:underline font-semibold",
-                formFieldInput: "rounded-xl border-input bg-background focus:ring-emerald-500 focus:border-emerald-500 py-2.5",
-                headerTitle: "text-2xl font-bold text-foreground",
-                headerSubtitle: "text-sm text-muted-foreground",
-              },
-            }}
-            routing="path"
-            path="/login"
-            signUpUrl="/register"
-            forceRedirectUrl="/patient/dashboard"
-          />
+        <div className="w-full flex justify-center min-h-[420px] items-center">
+          <ClerkLoading>
+            <div className="flex flex-col items-center justify-center space-y-3 p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+              <p className="text-sm font-medium text-muted-foreground">Loading secure sign in...</p>
+            </div>
+          </ClerkLoading>
+          <ClerkLoaded>
+            <SignIn
+              appearance={{
+                layout: {
+                  socialButtonsPlacement: "bottom",
+                  logoPlacement: "none",
+                },
+                elements: {
+                  card: "shadow-lg border border-slate-200 dark:border-slate-800 rounded-2xl bg-card p-6",
+                  formButtonPrimary: "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl py-3 shadow-md shadow-emerald-600/20 transition-all",
+                  footerActionLink: "text-emerald-600 dark:text-emerald-400 hover:underline font-semibold",
+                  formFieldInput: "rounded-xl border-input bg-background focus:ring-emerald-500 focus:border-emerald-500 py-2.5",
+                  headerTitle: "text-2xl font-bold text-foreground",
+                  headerSubtitle: "text-sm text-muted-foreground",
+                },
+              }}
+              routing="path"
+              path="/login"
+              signUpUrl="/register"
+              forceRedirectUrl="/patient/dashboard"
+              fallbackRedirectUrl="/patient/dashboard"
+            />
+          </ClerkLoaded>
         </div>
       </div>
     </div>

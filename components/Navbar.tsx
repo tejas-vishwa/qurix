@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Menu, X, ChevronRight, Home as HomeIcon, Users, Stethoscope, TestTube } from "lucide-react"
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs"
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
 import { Button } from "./ui/button"
 import { QurixLogo } from "./QurixLogo"
 import { ThemeToggle } from "./ThemeToggle"
@@ -36,14 +36,19 @@ export function Navbar() {
         <div className="hidden md:flex items-center space-x-3">
           <ThemeToggle />
           <SignedOut>
-            <SignInButton mode="redirect" forceRedirectUrl="/patient/dashboard">
+            <Link href="/login">
               <Button variant="ghost">Sign In</Button>
-            </SignInButton>
-            <SignUpButton mode="redirect" forceRedirectUrl="/patient/dashboard">
+            </Link>
+            <Link href="/register">
               <Button className="shadow-lg shadow-primary/20 bg-emerald-600 hover:bg-emerald-700">Get Started</Button>
-            </SignUpButton>
+            </Link>
           </SignedOut>
           <SignedIn>
+            <Link href="/patient/dashboard">
+              <Button variant="outline" size="sm" className="font-semibold border-emerald-600/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
+                Dashboard
+              </Button>
+            </Link>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
         </div>
@@ -116,16 +121,16 @@ export function Navbar() {
 
           <div className="border-t border-border/60 pt-6 mt-6 flex flex-col space-y-3">
             <SignedOut>
-              <SignInButton mode="redirect" forceRedirectUrl="/patient/dashboard">
+              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
                 <Button variant="outline" className="w-full h-12 text-base font-bold justify-center rounded-2xl">
                   Sign In
                 </Button>
-              </SignInButton>
-              <SignUpButton mode="redirect" forceRedirectUrl="/patient/dashboard">
+              </Link>
+              <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
                 <Button className="w-full h-12 text-base font-bold justify-center bg-emerald-600 hover:bg-emerald-700 shadow-lg rounded-2xl text-white">
                   Get Started Free
                 </Button>
-              </SignUpButton>
+              </Link>
             </SignedOut>
             <SignedIn>
               <Link href="/patient/dashboard" onClick={() => setIsMobileMenuOpen(false)}>

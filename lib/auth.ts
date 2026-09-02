@@ -246,49 +246,76 @@ export async function getAuthSession(_options?: any): Promise<AppUserSession | n
   if (hasClerkKeys) {
     try {
       const { auth, currentUser } = await import("@clerk/nextjs/server")
-      const { userId: clerkId } = await auth()
+      const authObj = await auth()
+      const clerkId = authObj?.userId
 
       if (clerkId) {
-        const clerkUser = await currentUser()
-        const primaryEmail =
-          clerkUser?.emailAddresses?.find(
-            (e) => e.id === clerkUser.primaryEmailAddressId
-          )?.emailAddress ||
-          clerkUser?.emailAddresses?.[0]?.emailAddress
+        let primaryEmail = ""
+        let rawName = ""
+        let rawRole = "PATIENT"
 
-        if (primaryEmail) {
-          const rawName =
-            `${clerkUser?.firstName || ""} ${clerkUser?.lastName || ""}`.trim() ||
-            clerkUser?.username ||
-            primaryEmail.split("@")[0]
+        try {
+          const clerkUser = await currentUser()
+          if (clerkUser) {
+            primaryEmail =
+              clerkUser.emailAddresses?.find(
+                (e) => e.id === clerkUser.primaryEmailAddressId
+              )?.emailAddress ||
+              clerkUser.emailAddresses?.[0]?.emailAddress ||
+              ""
 
-          const rawRole =
-            (clerkUser?.publicMetadata?.role as string) || "PATIENT"
+            rawName =
+              `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() ||
+              clerkUser.username ||
+              ""
 
-          const validRole =
-            rawRole === "DOCTOR" || rawRole === "ADMIN" || rawRole === "LAB"
-              ? rawRole
-              : "PATIENT"
+            rawRole = (clerkUser.publicMetadata?.role as string) || "PATIENT"
+          }
+        } catch (uErr) {
+          console.warn("[getAuthSession] currentUser fetch note:", uErr)
+        }
 
-          const dbUser = await syncClerkUserWithPrisma({
+        // If primaryEmail wasn't fetched from currentUser, check sessionClaims
+        if (!primaryEmail && authObj?.sessionClaims) {
+          const claims = authObj.sessionClaims as any
+          primaryEmail = claims.email || claims.primary_email || ""
+          rawName = claims.name || claims.full_name || ""
+        }
+
+        if (!primaryEmail) {
+          primaryEmail = `${clerkId}@clerk.user`
+        }
+
+        if (!rawName) {
+          rawName = primaryEmail.split("@")[0]
+        }
+
+        const validRole =
+          rawRole === "DOCTOR" || rawRole === "ADMIN" || rawRole === "LAB"
+            ? rawRole
+            : "PATIENT"
+
+        let dbUser = null
+        try {
+          dbUser = await syncClerkUserWithPrisma({
             clerkId,
             email: primaryEmail,
             name: rawName,
             role: validRole,
           })
+        } catch (syncErr) {
+          console.error("[getAuthSession] DB sync note:", syncErr)
+        }
 
-          if (dbUser) {
-            return {
-              user: {
-                id: dbUser.id,
-                email: dbUser.email,
-                name: dbUser.name || rawName,
-                role: dbUser.role,
-                subscriptionTier: dbUser.subscriptionTier,
-                paymentStatus: dbUser.paymentStatus,
-              },
-            }
-          }
+        return {
+          user: {
+            id: dbUser ? dbUser.id : clerkId,
+            email: dbUser ? dbUser.email : primaryEmail,
+            name: (dbUser && dbUser.name) || rawName,
+            role: (dbUser && dbUser.role) || validRole,
+            subscriptionTier: (dbUser && dbUser.subscriptionTier) || "FREE",
+            paymentStatus: (dbUser && dbUser.paymentStatus) || "NONE",
+          },
         }
       }
     } catch (error) {

@@ -51,6 +51,11 @@ export default function RootLayout({
       <body className="min-h-screen bg-background antialiased flex flex-col font-sans">
         <ClerkProvider
           dynamic
+          signInUrl="/login"
+          signUpUrl="/register"
+          fallbackRedirectUrl="/patient/dashboard"
+          signInFallbackRedirectUrl="/patient/dashboard"
+          signUpFallbackRedirectUrl="/patient/dashboard"
           appearance={{
             variables: {
               colorPrimary: "#059669",

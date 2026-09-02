@@ -8,8 +8,9 @@ export const dynamic = "force-dynamic"
 
 export default async function PatientLayout({ children }: { children: React.ReactNode }) {
   const session = await getAuthSession()
+  const userRole = (session?.user?.role || "PATIENT").toUpperCase()
   
-  if (!session || (session.user.role !== "PATIENT" && session.user.role !== "ADMIN")) {
+  if (!session || (userRole !== "PATIENT" && userRole !== "ADMIN")) {
     redirect("/login")
   }
 

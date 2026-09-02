@@ -60,6 +60,7 @@ export async function syncClerkUserWithPrisma({
       data: {
         id: clerkId,
         email: normalizedEmail,
+        passwordHash: "clerk_managed_auth",
         name: name || normalizedEmail.split("@")[0],
         role: role || "PATIENT",
         emailVerified: new Date(),

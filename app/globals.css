@@ -37,7 +37,7 @@
 
 @layer base {
   :root {
-    color-scheme: light;
+    color-scheme: light dark;
     --background: 216 33% 98%; /* #F7F9FC */
     --foreground: 210 73% 15%; /* #0A2540 */
 
@@ -65,9 +65,44 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 210 73% 15%;
-    --radius: 1rem; /* 16px border-radius */
+    --radius: 1rem;
   }
 
+  /* Native CSS system-theme detection — works before JS runs, zero flash */
+  @media (prefers-color-scheme: dark) {
+    :root:not(.light) {
+      color-scheme: dark;
+      --background: 222 47% 7%;
+      --foreground: 210 40% 98%;
+
+      --card: 222 40% 10%;
+      --card-foreground: 210 40% 98%;
+
+      --popover: 222 40% 10%;
+      --popover-foreground: 210 40% 98%;
+
+      --primary: 173 80% 45%;
+      --primary-foreground: 222 47% 7%;
+
+      --secondary: 217 33% 17%;
+      --secondary-foreground: 210 40% 98%;
+
+      --muted: 217 33% 15%;
+      --muted-foreground: 215 20% 70%;
+
+      --accent: 217 33% 17%;
+      --accent-foreground: 210 40% 98%;
+
+      --destructive: 0 72% 51%;
+      --destructive-foreground: 210 40% 98%;
+
+      --border: 217 33% 18%;
+      --input: 217 33% 18%;
+      --ring: 173 80% 45%;
+    }
+  }
+
+  /* JS-driven .dark class (used by ThemeProvider for live changes) */
   .dark {
     color-scheme: dark;
     --background: 222 47% 7%;

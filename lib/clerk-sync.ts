@@ -1,0 +1,76 @@
+import { prisma } from "@/lib/prisma"
+import { seedDatabase } from "@/lib/seed-db"
+
+export interface SyncUserParams {
+  clerkId: string
+  email: string
+  name?: string | null
+  role?: "PATIENT" | "DOCTOR" | "ADMIN" | "LAB"
+}
+
+/**
+ * Synchronizes an authenticated Clerk user with the Prisma database.
+ * Ensures health records, appointments, and prescriptions link to the user record.
+ */
+export async function syncClerkUserWithPrisma({
+  clerkId,
+  email,
+  name,
+  role = "PATIENT",
+}: SyncUserParams) {
+  if (!email) return null
+
+  const normalizedEmail = email.toLowerCase().trim()
+
+  try {
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: normalizedEmail },
+          { id: clerkId },
+        ],
+      },
+    }).catch(async () => {
+      await seedDatabase()
+      return await prisma.user.findFirst({
+        where: {
+          OR: [
+            { email: normalizedEmail },
+            { id: clerkId },
+          ],
+        },
+      })
+    })
+
+    if (user) {
+      // Update existing user with name/verified status if missing
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          email: normalizedEmail,
+          name: name || user.name,
+          emailVerified: user.emailVerified || new Date(),
+        },
+      }).catch(() => user)
+      return user
+    }
+
+    // Create fresh user record in Prisma
+    user = await prisma.user.create({
+      data: {
+        id: clerkId,
+        email: normalizedEmail,
+        name: name || normalizedEmail.split("@")[0],
+        role: role || "PATIENT",
+        emailVerified: new Date(),
+        subscriptionTier: "FREE",
+        paymentStatus: "NONE",
+      },
+    })
+
+    return user
+  } catch (error) {
+    console.error("Failed to sync Clerk user with Prisma:", error)
+    return null
+  }
+}

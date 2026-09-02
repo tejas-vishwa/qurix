@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { signOut } from "next-auth/react"
+import { signOut as nextAuthSignOut } from "next-auth/react"
+import { useClerk, UserButton } from "@clerk/nextjs"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LayoutDashboard, LineChart, LogOut, UploadCloud, Calendar, Menu, X, ChevronRight, User, Pill, Activity } from "lucide-react"
@@ -17,6 +18,18 @@ interface PatientNavbarProps {
 export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
+  const { signOut: clerkSignOut } = useClerk()
+
+  const handleSignOut = async () => {
+    try {
+      await clerkSignOut()
+    } catch {}
+    try {
+      await nextAuthSignOut({ callbackUrl: '/login' })
+    } catch {}
+    window.location.href = '/login'
+  }
+
   const navItems = [
     { name: "Dashboard", href: "/patient/dashboard", icon: LayoutDashboard, desc: "Health overview & metrics" },
     { name: "Upload", href: "/patient/upload", icon: UploadCloud, desc: "Unified Hub: Reports & Prescriptions" },
@@ -66,8 +79,9 @@ export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps
               )}
             </div>
           )}
+          <UserButton afterSignOutUrl="/login" />
           <button
-            onClick={() => signOut({ callbackUrl: '/login' })}
+            onClick={handleSignOut}
             className="flex items-center text-sm font-medium text-muted-foreground hover:text-destructive transition-colors"
           >
             <LogOut className="mr-2 h-4 w-4" /> Sign out

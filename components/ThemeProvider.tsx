@@ -34,50 +34,32 @@ export function ThemeProvider({
   const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">("light")
 
   useEffect(() => {
-    // Clean up any previously stored manual theme overrides so device theme is strictly respected
-    try {
-      localStorage.removeItem(storageKey)
-    } catch (_) {}
-
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
 
     const applyTheme = (isDark: boolean) => {
       const root = window.document.documentElement
-      root.classList.remove("light", "dark")
       if (isDark) {
         root.classList.add("dark")
+        root.classList.remove("light")
         root.style.colorScheme = "dark"
         setResolvedTheme("dark")
       } else {
         root.classList.remove("dark")
+        root.classList.remove("light")
         root.style.colorScheme = "light"
         setResolvedTheme("light")
       }
     }
 
-    // Apply initial system preference
+    // Sync immediately with current system preference
     applyTheme(mediaQuery.matches)
 
-    // Listen for live system theme changes on the device
-    const handleChange = (e: MediaQueryListEvent) => {
-      applyTheme(e.matches)
-    }
+    // Listen for OS / browser theme changes in real-time
+    const handleChange = (e: MediaQueryListEvent) => applyTheme(e.matches)
 
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener("change", handleChange)
-    } else {
-      // Compatibility for older browsers
-      mediaQuery.addListener(handleChange)
-    }
-
-    return () => {
-      if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener("change", handleChange)
-      } else {
-        mediaQuery.removeListener(handleChange)
-      }
-    }
-  }, [storageKey])
+    mediaQuery.addEventListener("change", handleChange)
+    return () => mediaQuery.removeEventListener("change", handleChange)
+  }, [])
 
   const value = {
     theme: "system" as Theme,

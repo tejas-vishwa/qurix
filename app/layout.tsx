@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next"
+import { ClerkProvider } from "@clerk/nextjs"
 import { Providers } from "./providers"
 import "./globals.css"
 
@@ -24,7 +25,16 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <ClerkProvider
+      dynamic
+      appearance={{
+        variables: {
+          colorPrimary: "#059669",
+          colorTextOnPrimaryBackground: "#ffffff",
+        },
+      }}
+    >
+      <html lang="en" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -32,12 +42,14 @@ export default function RootLayout({
               (function() {
                 try {
                   var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  var root = document.documentElement;
+                  root.classList.remove('light');
                   if (isDark) {
-                    document.documentElement.classList.add('dark');
-                    document.documentElement.style.colorScheme = 'dark';
+                    root.classList.add('dark');
+                    root.style.colorScheme = 'dark';
                   } else {
-                    document.documentElement.classList.remove('dark');
-                    document.documentElement.style.colorScheme = 'light';
+                    root.classList.remove('dark');
+                    root.style.colorScheme = 'light';
                   }
                 } catch (_) {}
               })();
@@ -51,5 +63,6 @@ export default function RootLayout({
         </Providers>
       </body>
     </html>
+  </ClerkProvider>
   )
 }

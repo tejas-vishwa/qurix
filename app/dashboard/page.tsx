@@ -1,8 +1,20 @@
+import { getAuthSession } from "@/lib/auth"
 import { redirect } from "next/navigation"
 
 export const dynamic = "force-dynamic"
 
 export default async function DashboardPage() {
-  // Always show portal selection — let the user choose their role
-  redirect("/portal")
+  const session = await getAuthSession()
+
+  if (!session) {
+    redirect("/login")
+  }
+
+  const role = (session.user.role || "PATIENT").toUpperCase()
+
+  if (role === "DOCTOR") {
+    redirect("/doctor/dashboard")
+  } else {
+    redirect("/patient/dashboard")
+  }
 }

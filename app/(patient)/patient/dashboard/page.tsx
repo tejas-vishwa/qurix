@@ -1,5 +1,5 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { getAuthSession } from "@/lib/auth"
+import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, FileText, Share2 } from "lucide-react"
@@ -11,10 +11,12 @@ import { DeleteReportButton } from "@/components/DeleteReportButton"
 export const dynamic = "force-dynamic"
 
 export default async function PatientDashboard() {
-  const session = await getServerSession(authOptions)
+  const session = await getAuthSession()
   const userId = session?.user.id
 
-  if (!userId) return null
+  if (!userId) {
+    redirect("/login")
+  }
 
   const reports = await prisma.report.findMany({
     where: { patientId: userId },

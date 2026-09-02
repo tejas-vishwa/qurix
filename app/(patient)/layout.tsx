@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { getAuthSession } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { BackButton } from "@/components/BackButton"
 import { PatientNavbar } from "@/components/PatientNavbar"
@@ -8,9 +7,9 @@ import { Footer } from "@/components/Footer"
 export const dynamic = "force-dynamic"
 
 export default async function PatientLayout({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession(authOptions)
+  const session = await getAuthSession()
   
-  if (!session || session.user.role !== "PATIENT") {
+  if (!session || (session.user.role !== "PATIENT" && session.user.role !== "ADMIN")) {
     redirect("/login")
   }
 

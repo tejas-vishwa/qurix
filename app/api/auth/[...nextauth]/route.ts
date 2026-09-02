@@ -1,8 +1,20 @@
 import NextAuth from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions, getAuthSession } from "@/lib/auth"
+import { NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
 
 const handler = NextAuth(authOptions)
 
-export { handler as GET, handler as POST }
+export async function GET(req: NextRequest, ctx: any) {
+  if (req.nextUrl.pathname.endsWith("/session")) {
+    const session = await getAuthSession()
+    if (session?.user?.id) {
+      return NextResponse.json(session)
+    }
+  }
+  return handler(req, ctx)
+}
+
+export { handler as POST }
+

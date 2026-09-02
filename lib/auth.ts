@@ -1,7 +1,9 @@
 import { NextAuthOptions } from "next-auth"
+import { getServerSession as getNextAuthSession } from "next-auth/next"
 import CredentialsProvider from "next-auth/providers/credentials"
 import EmailProvider from "next-auth/providers/email"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
+import { syncClerkUserWithPrisma } from "@/lib/clerk-sync"
 import { compare } from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { seedDatabase } from "@/lib/seed-db"
@@ -223,3 +225,89 @@ export const authOptions: NextAuthOptions = {
     }
   }
 }
+
+export interface AppUserSession {
+  user: {
+    id: string
+    email: string
+    name?: string | null
+    role: string
+    subscriptionTier: string
+    paymentStatus: string
+  }
+}
+
+export async function getAuthSession(_options?: any): Promise<AppUserSession | null> {
+  // 1. Try Clerk authentication if keys are configured
+  const hasClerkKeys =
+    !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&
+    !!process.env.CLERK_SECRET_KEY
+
+  if (hasClerkKeys) {
+    try {
+      const { auth, currentUser } = await import("@clerk/nextjs/server")
+      const { userId: clerkId } = await auth()
+
+      if (clerkId) {
+        const clerkUser = await currentUser()
+        const primaryEmail =
+          clerkUser?.emailAddresses?.find(
+            (e) => e.id === clerkUser.primaryEmailAddressId
+          )?.emailAddress ||
+          clerkUser?.emailAddresses?.[0]?.emailAddress
+
+        if (primaryEmail) {
+          const rawName =
+            `${clerkUser?.firstName || ""} ${clerkUser?.lastName || ""}`.trim() ||
+            clerkUser?.username ||
+            primaryEmail.split("@")[0]
+
+          const rawRole =
+            (clerkUser?.publicMetadata?.role as string) || "PATIENT"
+
+          const validRole =
+            rawRole === "DOCTOR" || rawRole === "ADMIN" || rawRole === "LAB"
+              ? rawRole
+              : "PATIENT"
+
+          const dbUser = await syncClerkUserWithPrisma({
+            clerkId,
+            email: primaryEmail,
+            name: rawName,
+            role: validRole,
+          })
+
+          if (dbUser) {
+            return {
+              user: {
+                id: dbUser.id,
+                email: dbUser.email,
+                name: dbUser.name || rawName,
+                role: dbUser.role,
+                subscriptionTier: dbUser.subscriptionTier,
+                paymentStatus: dbUser.paymentStatus,
+              },
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[getAuthSession] Clerk session error:", error)
+    }
+  }
+
+  // 2. Fall back to NextAuth session
+  try {
+    const session = await getNextAuthSession(authOptions)
+    if (session?.user?.id) {
+      return session as AppUserSession
+    }
+  } catch (error) {
+    console.error("[getAuthSession] NextAuth session error:", error)
+  }
+
+  return null
+}
+
+export { getAuthSession as getServerSession }
+

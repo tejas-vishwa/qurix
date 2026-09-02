@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { getServerSession, authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma"
 import { extractPrescriptionData, sanitizeMedications } from "@/lib/gemini-ocr"
 import { validateUploadedFile, ALLOWED_DOCUMENT_MIME_TYPES, verifyFileContentMagicBytes, sanitizeSafeFileName } from "@/lib/validations"

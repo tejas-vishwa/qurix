@@ -80,12 +80,10 @@ async function applyRateLimiting(
 }
 
 // ─── Clerk-powered middleware (used when Clerk keys are present) ───────────────
-async function clerkMiddlewareHandler(req: NextRequest): Promise<NextResponse> {
+async function clerkMiddlewareHandler(req: NextRequest, event: any): Promise<NextResponse> {
   const { clerkMiddleware } = await import("@clerk/nextjs/server")
 
-  let finalResponse: NextResponse = NextResponse.next()
-
-  const handler = clerkMiddleware(async (auth) => {
+  const handler = clerkMiddleware(async (auth, request) => {
     let userId: string | null = null
     try {
       const authObj = await auth()
@@ -94,25 +92,25 @@ async function clerkMiddlewareHandler(req: NextRequest): Promise<NextResponse> {
       userId = null
     }
 
-    const limited = await applyRateLimiting(req, !!userId, userId)
+    const limited = await applyRateLimiting((request as any) || req, !!userId, userId)
     if (limited) {
-      finalResponse = limited
+      return limited
     }
   })
 
-  await handler(req, {} as any)
-  return finalResponse
+  const res = await handler(req, event || ({} as any))
+  return res as NextResponse
 }
 
 // ─── Main middleware export ────────────────────────────────────────────────────
-export async function middleware(req: NextRequest): Promise<NextResponse> {
+export async function middleware(req: NextRequest, event: any): Promise<NextResponse> {
   const hasClerkKeys =
     !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&
     !!process.env.CLERK_SECRET_KEY
 
   if (hasClerkKeys) {
     try {
-      return await clerkMiddlewareHandler(req)
+      return await clerkMiddlewareHandler(req, event)
     } catch (err) {
       // Clerk misconfigured — fall through to basic rate limiting
       console.error("[Middleware] Clerk error, falling back:", err)

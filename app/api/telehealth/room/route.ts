@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { getServerSession, authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma"
 import { createDailyRoom, createDailyToken } from "@/lib/daily"
 import { TelehealthRoomSchema, validateSchema } from "@/lib/validations"

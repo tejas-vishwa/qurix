@@ -182,8 +182,8 @@ export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps
           <div className="pt-6 border-t border-border/60 mt-6">
             <button
               onClick={() => {
-                setIsMobileMenuOpen(false);
-                signOut({ callbackUrl: '/login' });
+                setIsMobileMenuOpen(false)
+                handleSignOut()
               }}
               className="flex w-full items-center justify-center p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive font-bold hover:bg-destructive/20 transition-all text-base shadow-sm"
             >

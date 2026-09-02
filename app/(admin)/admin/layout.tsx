@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { getServerSession, authOptions } from "@/lib/auth";
 import { notFound } from "next/navigation"
 import AdminSidebar from "@/components/AdminSidebar"
 

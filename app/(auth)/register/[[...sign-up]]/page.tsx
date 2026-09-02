@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { SignUp, ClerkLoading, ClerkLoaded, useAuth, useUser } from "@clerk/nextjs"
+import { SignUp, ClerkLoading, ClerkLoaded, useAuth } from "@clerk/nextjs"
 import { QurixLogo } from "@/components/QurixLogo"
 import { BackButton } from "@/components/BackButton"
 import { Loader2, Activity, Stethoscope } from "lucide-react"
@@ -11,30 +11,16 @@ type Role = "PATIENT" | "DOCTOR" | null
 
 export default function RegisterPage() {
   const { isLoaded, isSignedIn } = useAuth()
-  const { user } = useUser()
   const [selectedRole, setSelectedRole] = useState<Role>(null)
-  const [saving, setSaving] = useState(false)
 
-  // After signup: save role to Clerk metadata, then redirect
+  // After signup: read role from localStorage and redirect immediately
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || !user) return
+    if (!isLoaded || !isSignedIn) return
 
-    const saveAndRedirect = async () => {
-      setSaving(true)
-      const role = (localStorage.getItem("qurix_signup_role") as Role) || "PATIENT"
-
-      try {
-        await user.update({ unsafeMetadata: { role } })
-      } catch {
-        // non-blocking — redirect anyway
-      }
-
-      localStorage.removeItem("qurix_signup_role")
-      window.location.href = role === "DOCTOR" ? "/doctor/dashboard" : "/patient/dashboard"
-    }
-
-    saveAndRedirect()
-  }, [isLoaded, isSignedIn, user])
+    const role = (localStorage.getItem("qurix_signup_role") as Role) || "PATIENT"
+    localStorage.removeItem("qurix_signup_role")
+    window.location.href = role === "DOCTOR" ? "/doctor/dashboard" : "/patient/dashboard"
+  }, [isLoaded, isSignedIn])
 
   // Loading / redirecting state
   if (isLoaded && isSignedIn) {

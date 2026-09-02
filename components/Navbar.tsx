@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Menu, X, ChevronRight, Home as HomeIcon, Users, Stethoscope, TestTube } from "lucide-react"
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs"
 import { Button } from "./ui/button"
 import { QurixLogo } from "./QurixLogo"
 import { ThemeToggle } from "./ThemeToggle"
@@ -34,17 +35,25 @@ export function Navbar() {
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center space-x-3">
           <ThemeToggle />
-          <Link href="/login">
-            <Button variant="ghost">Sign In</Button>
-          </Link>
-          <Link href="/login">
-            <Button className="shadow-lg shadow-primary/20 bg-emerald-600 hover:bg-emerald-700">Get Started</Button>
-          </Link>
+          <SignedOut>
+            <SignInButton mode="redirect">
+              <Button variant="ghost">Sign In</Button>
+            </SignInButton>
+            <SignUpButton mode="redirect">
+              <Button className="shadow-lg shadow-primary/20 bg-emerald-600 hover:bg-emerald-700">Get Started</Button>
+            </SignUpButton>
+          </SignedOut>
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
         </div>
 
         {/* Mobile Header Controls */}
         <div className="flex md:hidden items-center gap-2">
           <ThemeToggle />
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -60,11 +69,10 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Full-Screen Mobile Menu Drawer Overlay (Seamless Theme Blending) */}
+      {/* Full-Screen Mobile Menu Drawer Overlay */}
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 w-full h-full min-h-screen z-[99999] bg-background text-foreground p-6 flex flex-col justify-between overflow-y-auto animate-in fade-in duration-200">
           <div className="space-y-6">
-            {/* Top Bar inside Full Screen Overlay */}
             <div className="flex items-center justify-between pb-4 border-b border-border/60">
               <QurixLogo className="h-8 w-auto" showTagline={true} />
               <div className="flex items-center gap-2">
@@ -107,16 +115,25 @@ export function Navbar() {
           </div>
 
           <div className="border-t border-border/60 pt-6 mt-6 flex flex-col space-y-3">
-            <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button variant="outline" className="w-full h-12 text-base font-bold justify-center rounded-2xl">
-                Sign In
-              </Button>
-            </Link>
-            <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button className="w-full h-12 text-base font-bold justify-center bg-emerald-600 hover:bg-emerald-700 shadow-lg rounded-2xl text-white">
-                Get Started Free
-              </Button>
-            </Link>
+            <SignedOut>
+              <SignInButton mode="redirect">
+                <Button variant="outline" className="w-full h-12 text-base font-bold justify-center rounded-2xl">
+                  Sign In
+                </Button>
+              </SignInButton>
+              <SignUpButton mode="redirect">
+                <Button className="w-full h-12 text-base font-bold justify-center bg-emerald-600 hover:bg-emerald-700 shadow-lg rounded-2xl text-white">
+                  Get Started Free
+                </Button>
+              </SignUpButton>
+            </SignedOut>
+            <SignedIn>
+              <Link href="/patient/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button className="w-full h-12 text-base font-bold justify-center bg-emerald-600 hover:bg-emerald-700 shadow-lg rounded-2xl text-white">
+                  Go to Dashboard
+                </Button>
+              </Link>
+            </SignedIn>
           </div>
         </div>
       )}

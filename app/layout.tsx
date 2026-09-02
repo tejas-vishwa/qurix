@@ -25,16 +25,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <ClerkProvider
-      dynamic
-      appearance={{
-        variables: {
-          colorPrimary: "#059669",
-          colorTextOnPrimaryBackground: "#ffffff",
-        },
-      }}
-    >
-      <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -58,11 +49,20 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-background antialiased flex flex-col font-sans">
-        <Providers>
-          {children}
-        </Providers>
+        <ClerkProvider
+          dynamic
+          appearance={{
+            variables: {
+              colorPrimary: "#059669",
+              colorTextOnPrimaryBackground: "#ffffff",
+            },
+          }}
+        >
+          <Providers>
+            {children}
+          </Providers>
+        </ClerkProvider>
       </body>
     </html>
-  </ClerkProvider>
   )
 }

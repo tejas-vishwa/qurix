@@ -16,6 +16,8 @@ model User {
   name          String?
   gender        String?
   age           Int?
+  height        Float?
+  weight        Float?
   location      String?
   role          String    @default("PATIENT") // PATIENT, DOCTOR, ADMIN, LAB_PARTNER
   accountStatus    String    @default("ACTIVE") // ACTIVE, SUSPENDED

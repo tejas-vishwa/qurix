@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { BackButton } from "@/components/BackButton"
 import { PatientNavbar } from "@/components/PatientNavbar"
 import { Footer } from "@/components/Footer"
+import { DashboardTransition } from "@/components/DashboardTransition"
 
 export const dynamic = "force-dynamic"
 
@@ -19,7 +20,7 @@ export default async function PatientLayout({ children }: { children: React.Reac
       <PatientNavbar userName={session.user.name} subscriptionTier={session.user.subscriptionTier} />
       <main className="flex-1 p-4 md:p-6 lg:p-8">
         <BackButton />
-        {children}
+        <DashboardTransition>{children}</DashboardTransition>
       </main>
       <Footer />
     </div>

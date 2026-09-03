@@ -18,6 +18,8 @@ export async function GET() {
         email: true,
         gender: true,
         age: true,
+        height: true,
+        weight: true,
         location: true,
         subscriptionTier: true,
       },
@@ -52,7 +54,7 @@ export async function PUT(request: Request) {
       return validation.response
     }
 
-    const { name, gender, age, location } = validation.data
+    const { name, gender, age, height, weight, location } = validation.data
 
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
@@ -60,6 +62,8 @@ export async function PUT(request: Request) {
         name: name !== undefined ? name : undefined,
         gender: gender !== undefined ? gender : undefined,
         age: age !== undefined ? age : undefined,
+        height: height !== undefined ? height : undefined,
+        weight: weight !== undefined ? weight : undefined,
         location: location !== undefined ? location : undefined,
       },
     })

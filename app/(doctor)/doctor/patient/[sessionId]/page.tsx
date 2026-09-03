@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, User, FileText, Eye, Pill, Thermometer, HeartPulse } from "lucide-react"
-import { PatientTrendsDashboard } from "@/components/PatientTrendsDashboard"
+import { DynamicPatientTrendsDashboard } from "@/components/DynamicPatientTrendsDashboard"
 import { prisma } from "@/lib/prisma"
 
 export const dynamic = "force-dynamic"
@@ -222,7 +222,7 @@ export default async function DoctorPatientView({ params }: { params: Promise<{ 
           <CardDescription>Clinical visualizations of patient biomarker history.</CardDescription>
         </CardHeader>
         <CardContent className="p-0 border-0 bg-transparent shadow-none">
-          <PatientTrendsDashboard accessCode={code} />
+          <DynamicPatientTrendsDashboard accessCode={code} />
         </CardContent>
       </Card>
 

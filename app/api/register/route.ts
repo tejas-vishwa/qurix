@@ -10,6 +10,7 @@ import {
   createRateLimitResponse,
 } from "@/lib/rate-limit"
 import { RegisterSchema, validateSchema } from "@/lib/validations"
+import { extractNameFromEmail } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
@@ -105,10 +106,11 @@ export async function POST(req: Request) {
 
     // 7. Hash password & Create user
     const hashedPassword = await bcrypt.hash(password, 10)
+    const formattedName = (name && name.trim().length > 0) ? name.trim() : extractNameFromEmail(normalizedEmail)
 
     const user = await prisma.user.create({
       data: {
-        name,
+        name: formattedName,
         email: normalizedEmail,
         passwordHash: hashedPassword,
         emailVerified: new Date(),

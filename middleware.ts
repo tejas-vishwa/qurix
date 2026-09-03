@@ -84,6 +84,21 @@ async function applyRateLimiting(
 export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl
 
+  // 1. Instant Vercel Edge Network Redirect:
+  // Check for session cookie (auth_token, Clerk __session, or NextAuth token)
+  // Routing the user in milliseconds before rendering the page.
+  const token =
+    req.cookies.get("auth_token")?.value ||
+    req.cookies.get("__session")?.value ||
+    req.cookies.get("next-auth.session-token")?.value ||
+    req.cookies.get("__Secure-next-auth.session-token")?.value
+
+  const isLoginPage = pathname === "/login" || pathname.startsWith("/login")
+
+  if (token && isLoginPage) {
+    return NextResponse.redirect(new URL("/dashboard", req.url))
+  }
+
   // Single auth() call — reuse result throughout
   let userId: string | null = null
   let role = ""
@@ -101,7 +116,7 @@ export default clerkMiddleware(async (auth, req) => {
 
   // Redirect authenticated users away from auth pages immediately
   if (userId && (pathname.startsWith("/login") || pathname.startsWith("/register"))) {
-    const target = role === "DOCTOR" ? "/doctor/dashboard" : "/patient/dashboard"
+    const target = role === "DOCTOR" ? "/doctor/dashboard" : role === "ADMIN" ? "/admin" : "/patient/dashboard"
     return NextResponse.redirect(new URL(target, req.url))
   }
 

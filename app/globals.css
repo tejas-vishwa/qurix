@@ -163,36 +163,26 @@
    inherit the active theme (Dark Mode by default / Light Mode)
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-/* Containers & Cards */
-.cl-rootBox {
-  width: 100% !important;
-}
-
+/* Containers & Cards (completely seamless, borderless, transparent) */
+.cl-rootBox,
 .cl-cardBox,
-div[class*="cl-cardBox"] {
-  width: 100% !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-
 .cl-card,
-div[class*="cl-card"] {
+.cl-main,
+div[class*="cl-rootBox"],
+div[class*="cl-cardBox"],
+div[class*="cl-card"],
+div[class*="cl-main"] {
   width: 100% !important;
-  background-color: hsl(var(--card)) !important;
-  color: hsl(var(--card-foreground)) !important;
-  border: 1px solid hsl(var(--border)) !important;
-  border-radius: 1.5rem !important;
-  box-shadow: none !important;
-}
-
-/* When Clerk is nested inside an existing card container (e.g. login page) */
-.bg-card .cl-card,
-[class*="bg-card"] .cl-card {
+  max-width: 100% !important;
   background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
   border: none !important;
+  border-width: 0 !important;
   box-shadow: none !important;
-  padding: 0 !important;
+  outline: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 /* Headers */
@@ -322,7 +312,20 @@ span[class*="cl-dividerText"] {
 .cl-footer,
 footer[class*="cl-footer"] {
   background: transparent !important;
-  border-top: 1px solid hsl(var(--border) / 0.5) !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  border-top: none !important;
+  box-shadow: none !important;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0 !important;
+}
+
+.cl-footerAction,
+div[class*="cl-footerAction"] {
+  border: none !important;
+  background: transparent !important;
+  justify-content: center !important;
 }
 
 .cl-footerActionText,
@@ -355,17 +358,23 @@ input[class*="cl-otpCodeFieldInput"] {
   box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.25) !important;
 }
 
-/* Identity preview (e.g. "Signing in as user@example.com") */
+/* Identity preview (e.g. "tejasvishwa2106@gmail.com") */
 .cl-identityPreview,
 div[class*="cl-identityPreview"] {
   background-color: hsl(var(--muted) / 0.3) !important;
   border: 1px solid hsl(var(--border) / 0.6) !important;
-  border-radius: 0.75rem !important;
+  border-radius: 9999px !important;
+  padding: 0.35rem 0.85rem !important;
+  margin: 0.5rem auto 1rem !important;
+  width: fit-content !important;
+  box-shadow: none !important;
 }
 
 .cl-identityPreviewText,
 span[class*="cl-identityPreviewText"] {
   color: hsl(var(--foreground)) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
 }
 
 .cl-identityPreviewEditButton,
@@ -394,30 +403,25 @@ div[class*="cl-alert"] {
   color: #10b981 !important;
 }
 
-/* Development Mode Banner & Clerk Branding in Dev Mode */
+/* Development Mode Banner, Hazard Stripes & Watermarks (completely removed) */
 div[class*="cl-internal-"],
 div[class*="devModeBanner"],
 div[class*="devMode"],
 div[class*="dev-mode"],
-.cl-devModeBanner {
-  background-color: hsl(var(--muted) / 0.25) !important;
-  border-top: 1px solid hsl(var(--border) / 0.4) !important;
-  color: hsl(var(--muted-foreground)) !important;
-}
-
-div[class*="devModeBanner"] p,
-div[class*="devModeBanner"] span,
-div[class*="devModeBanner"] a,
-div[class*="devMode"] p,
-div[class*="devMode"] span,
-div[class*="cl-internal-"] p,
-div[class*="cl-internal-"] span {
-  color: hsl(var(--muted-foreground)) !important;
-}
-
+.cl-devModeBanner,
 .cl-footerPages,
-.cl-footerPagesLink {
+.cl-footerPagesLink,
+div[class*="footerPages"] {
   display: none !important;
+  height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  background: transparent !important;
+  background-image: none !important;
+  border: none !important;
 }
 
 /* User Button Popover Menu (Navbar) */

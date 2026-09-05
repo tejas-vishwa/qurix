@@ -652,24 +652,27 @@ export default function LoginPage() {
                         colorTextOnPrimaryBackground: "#ffffff",
                       },
                       elements: {
-                        rootBox: "w-full",
+                        rootBox: "w-full shadow-none border-0 bg-transparent p-0",
                         cardBox: "w-full shadow-none border-0 bg-transparent p-0",
                         card: "shadow-none border-0 bg-transparent p-0 w-full",
+                        main: "w-full bg-transparent border-0 p-0 shadow-none",
                         formButtonPrimary:
                           "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl py-3 shadow-md shadow-emerald-600/20 transition-all",
                         footerActionLink: "text-emerald-600 dark:text-emerald-400 hover:underline font-semibold",
                         formFieldInput:
                           "rounded-xl border-input bg-background text-foreground focus:ring-emerald-500 focus:border-emerald-500 py-2.5",
                         formFieldLabel: "text-foreground font-medium text-xs",
-                        headerTitle: "text-2xl font-bold text-foreground",
-                        headerSubtitle: "text-sm text-muted-foreground",
+                        headerTitle: "text-xl font-bold text-foreground text-center",
+                        headerSubtitle: "text-xs text-muted-foreground text-center",
                         socialButtonsBlockButton:
                           "bg-muted/40 hover:bg-muted/70 border border-border text-foreground rounded-xl",
                         socialButtonsBlockButtonText: "text-foreground font-medium",
                         dividerLine: "bg-border/80",
                         dividerText: "text-muted-foreground text-xs",
-                        footer: "bg-transparent border-t border-border/50",
+                        footer: "bg-transparent border-0 shadow-none pt-2",
                         footerActionText: "text-muted-foreground text-xs",
+                        footerPages: "hidden",
+                        devModeBanner: "hidden",
                       },
                     }}
                     routing="path"

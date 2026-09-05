@@ -127,7 +127,7 @@ export default function RegisterPage() {
               </button>
             </div>
 
-            <div className="w-full flex justify-center min-h-[420px] items-center">
+            <div className="w-full p-6 sm:p-8 rounded-3xl border border-border/80 bg-card shadow-2xl backdrop-blur-xl flex justify-center min-h-[420px] items-center">
               <ClerkLoading>
                 <div className="flex flex-col items-center justify-center space-y-3 p-8">
                   <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
@@ -146,9 +146,10 @@ export default function RegisterPage() {
                       colorTextOnPrimaryBackground: "#ffffff",
                     },
                     elements: {
-                      rootBox: "w-full",
-                      cardBox: "w-full shadow-none border-0 bg-transparent",
-                      card: "shadow-xl border border-border rounded-3xl bg-card p-6 sm:p-8",
+                      rootBox: "w-full shadow-none border-0 bg-transparent p-0",
+                      cardBox: "w-full shadow-none border-0 bg-transparent p-0",
+                      card: "shadow-none border-0 bg-transparent p-0 w-full",
+                      main: "w-full bg-transparent border-0 p-0 shadow-none",
                       formButtonPrimary: "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl py-3 shadow-md shadow-emerald-600/20 transition-all",
                       footerActionLink: "text-emerald-600 dark:text-emerald-400 hover:underline font-semibold",
                       formFieldInput: "rounded-xl border-input bg-background text-foreground focus:ring-emerald-500 focus:border-emerald-500 py-2.5",
@@ -157,11 +158,13 @@ export default function RegisterPage() {
                       socialButtonsBlockButtonText: "text-foreground font-medium",
                       dividerLine: "bg-border/80",
                       dividerText: "text-muted-foreground text-xs",
-                      footer: "bg-transparent border-t border-border/50",
+                      footer: "bg-transparent border-0 shadow-none pt-2",
                       footerActionText: "text-muted-foreground text-xs",
+                      footerPages: "hidden",
+                      devModeBanner: "hidden",
                       identityPreviewEditButtonIcon: "text-emerald-600",
-                      headerTitle: "text-2xl font-bold text-foreground",
-                      headerSubtitle: "text-sm text-muted-foreground",
+                      headerTitle: "text-xl font-bold text-foreground text-center",
+                      headerSubtitle: "text-xs text-muted-foreground text-center",
                     },
                   }}
                   routing="path"

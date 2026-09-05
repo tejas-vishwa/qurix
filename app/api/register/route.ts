@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
+import { seedDatabase } from "@/lib/seed-db"
 import {
   getClientIp,
   checkAuthLimit,
@@ -9,7 +10,6 @@ import {
   createRateLimitResponse,
 } from "@/lib/rate-limit"
 import { RegisterSchema, validateSchema } from "@/lib/validations"
-import { extractNameFromEmail } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
@@ -63,7 +63,10 @@ export async function POST(req: Request) {
     // 5. Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: normalizedEmail },
-    }).catch(() => null)
+    }).catch(async () => {
+      await seedDatabase()
+      return await prisma.user.findUnique({ where: { email: normalizedEmail } })
+    })
 
     if (existingUser) {
       recordAuthFailure(clientIp, normalizedEmail)
@@ -102,11 +105,10 @@ export async function POST(req: Request) {
 
     // 7. Hash password & Create user
     const hashedPassword = await bcrypt.hash(password, 10)
-    const formattedName = (name && name.trim().length > 0) ? name.trim() : extractNameFromEmail(normalizedEmail)
 
     const user = await prisma.user.create({
       data: {
-        name: formattedName,
+        name,
         email: normalizedEmail,
         passwordHash: hashedPassword,
         emailVerified: new Date(),

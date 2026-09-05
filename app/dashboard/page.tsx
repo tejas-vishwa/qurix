@@ -14,8 +14,6 @@ export default async function DashboardPage() {
 
   if (role === "DOCTOR") {
     redirect("/doctor/dashboard")
-  } else if (role === "ADMIN") {
-    redirect("/admin")
   } else {
     redirect("/patient/dashboard")
   }

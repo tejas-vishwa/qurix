@@ -85,32 +85,9 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          let user = await prisma.user.findUnique({
+          const user = await prisma.user.findUnique({
             where: { email: emailLower }
           }).catch(() => null)
-
-          // Fast on-demand creation of demo user if missing in Turso DB
-          if (!user && (emailLower.includes("demo") || emailLower.includes("biobytes") || emailLower.includes("teamqurix.com") || emailLower.includes("qurix.health"))) {
-            const isDoc = emailLower.includes("doctor")
-            const isAdmin = emailLower.includes("admin")
-            const demoRole = isDoc ? "DOCTOR" : isAdmin ? "ADMIN" : "PATIENT"
-            const demoName = isDoc ? "Dr. Rahul Verma" : isAdmin ? "Admin User" : emailLower.split("@")[0]
-            const demoPasswordHash = "$2b$10$9Te2u47R.K/ggejiePt7m.h6FsxZ6n.QoRfeT8acNEIhVbn3qGoki"
-
-            user = await prisma.user.upsert({
-              where: { email: emailLower },
-              update: {},
-              create: {
-                id: `demo_${emailLower.replace(/[^a-z0-9]/g, '_')}`,
-                email: emailLower,
-                name: demoName,
-                role: demoRole,
-                passwordHash: demoPasswordHash,
-                subscriptionTier: "FREE",
-                paymentStatus: "NONE",
-              }
-            }).catch(() => null)
-          }
 
           if (!user) {
             recordAuthFailure(clientIp, emailLower)
@@ -249,17 +226,7 @@ export interface AppUserSession {
 }
 
 export async function getAuthSession(_options?: any): Promise<AppUserSession | null> {
-  // 1. Primary: NextAuth session (active authentication)
-  try {
-    const session = await getNextAuthSession(authOptions)
-    if (session?.user?.id) {
-      return session as AppUserSession
-    }
-  } catch (error) {
-    console.error("[getAuthSession] NextAuth session error:", error)
-  }
-
-  // 2. Preserved backend fallback: Clerk authentication for future implementation
+  // 1. Try Clerk authentication if keys are configured
   const hasClerkKeys =
     !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&
     !!process.env.CLERK_SECRET_KEY
@@ -271,7 +238,7 @@ export async function getAuthSession(_options?: any): Promise<AppUserSession | n
       const clerkId = authObj?.userId
 
       if (clerkId) {
-        // Fast-path: Return immediately from in-memory cache if recently synced
+        // Fast-path 1: Return immediately from in-memory cache if recently synced
         const cachedUser = getCachedSyncedUser(clerkId)
         if (cachedUser) {
           return {
@@ -354,6 +321,16 @@ export async function getAuthSession(_options?: any): Promise<AppUserSession | n
     } catch (error) {
       console.error("[getAuthSession] Clerk session error:", error)
     }
+  }
+
+  // 2. Fall back to NextAuth session
+  try {
+    const session = await getNextAuthSession(authOptions)
+    if (session?.user?.id) {
+      return session as AppUserSession
+    }
+  } catch (error) {
+    console.error("[getAuthSession] NextAuth session error:", error)
   }
 
   return null

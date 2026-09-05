@@ -3,15 +3,13 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Menu, X, ChevronRight, Home as HomeIcon, Users, Stethoscope, TestTube } from "lucide-react"
-import { useSession, signOut } from "next-auth/react"
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
 import { Button } from "./ui/button"
 import { QurixLogo } from "./QurixLogo"
 import { ThemeToggle } from "./ThemeToggle"
 
 export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { data: session, status } = useSession()
-  const isAuthenticated = status === "authenticated"
 
   const publicLinks = [
     { name: "Home", href: "/", icon: HomeIcon, desc: "Overview & features" },
@@ -37,44 +35,30 @@ export function Navbar() {
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center space-x-3">
           <ThemeToggle />
-          {!isAuthenticated ? (
-            <>
-              <Link href="/login">
-                <Button variant="ghost">Sign In</Button>
-              </Link>
-              <Link href="/register">
-                <Button className="shadow-lg shadow-primary/20 bg-emerald-600 hover:bg-emerald-700">Get Started</Button>
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link href="/dashboard">
-                <Button variant="outline" size="sm" className="font-semibold border-emerald-600/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
-                  Dashboard
-                </Button>
-              </Link>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => signOut({ callbackUrl: "/" })}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                Sign out
+          <SignedOut>
+            <Link href="/login">
+              <Button variant="ghost">Sign In</Button>
+            </Link>
+            <Link href="/register">
+              <Button className="shadow-lg shadow-primary/20 bg-emerald-600 hover:bg-emerald-700">Get Started</Button>
+            </Link>
+          </SignedOut>
+          <SignedIn>
+            <Link href="/dashboard">
+              <Button variant="outline" size="sm" className="font-semibold border-emerald-600/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
+                Dashboard
               </Button>
-            </>
-          )}
+            </Link>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
         </div>
 
         {/* Mobile Header Controls */}
         <div className="flex md:hidden items-center gap-2">
           <ThemeToggle />
-          {isAuthenticated && (
-            <Link href="/dashboard">
-              <Button variant="outline" size="sm" className="text-xs font-semibold h-8 px-2.5">
-                Dashboard
-              </Button>
-            </Link>
-          )}
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -136,38 +120,25 @@ export function Navbar() {
           </div>
 
           <div className="border-t border-border/60 pt-6 mt-6 flex flex-col space-y-3">
-            {!isAuthenticated ? (
-              <>
-                <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full h-12 text-base font-bold justify-center rounded-2xl">
-                    Sign In
-                  </Button>
-                </Link>
-                <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button className="w-full h-12 text-base font-bold justify-center bg-emerald-600 hover:bg-emerald-700 shadow-lg rounded-2xl text-white">
-                    Get Started Free
-                  </Button>
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button className="w-full h-12 text-base font-bold justify-center bg-emerald-600 hover:bg-emerald-700 shadow-lg rounded-2xl text-white">
-                    Go to Dashboard
-                  </Button>
-                </Link>
-                <Button
-                  variant="outline"
-                  className="w-full h-12 text-base font-medium justify-center rounded-2xl text-muted-foreground"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false)
-                    signOut({ callbackUrl: "/" })
-                  }}
-                >
-                  Sign Out
+            <SignedOut>
+              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant="outline" className="w-full h-12 text-base font-bold justify-center rounded-2xl">
+                  Sign In
                 </Button>
-              </>
-            )}
+              </Link>
+              <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button className="w-full h-12 text-base font-bold justify-center bg-emerald-600 hover:bg-emerald-700 shadow-lg rounded-2xl text-white">
+                  Get Started Free
+                </Button>
+              </Link>
+            </SignedOut>
+            <SignedIn>
+              <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button className="w-full h-12 text-base font-bold justify-center bg-emerald-600 hover:bg-emerald-700 shadow-lg rounded-2xl text-white">
+                  Go to Dashboard
+                </Button>
+              </Link>
+            </SignedIn>
           </div>
         </div>
       )}

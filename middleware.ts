@@ -1,3 +1,4 @@
+import { clerkMiddleware } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getRateLimitConfig, classifyRoute } from "@/lib/rate-limit/config"
@@ -80,30 +81,39 @@ async function applyRateLimiting(
 }
 
 // ─── Main middleware ──────────────────────────────────────────────────────────
-export async function middleware(req: NextRequest): Promise<NextResponse> {
+export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl
 
-  // Instant Edge Redirect for logged-in NextAuth users visiting login/register
-  const token =
-    req.cookies.get("next-auth.session-token")?.value ||
-    req.cookies.get("__Secure-next-auth.session-token")?.value ||
-    req.cookies.get("auth_token")?.value
+  // Single auth() call — reuse result throughout
+  let userId: string | null = null
+  let role = ""
+  try {
+    const authObj = await auth()
+    userId = authObj.userId ?? null
+    const claims = authObj?.sessionClaims as any
+    role = (
+      claims?.role ||
+      claims?.public_metadata?.role ||
+      claims?.unsafe_metadata?.role ||
+      ""
+    ).toUpperCase()
+  } catch {}
 
-  const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register")
-  if (token && isAuthPage) {
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+  // Redirect authenticated users away from auth pages immediately
+  if (userId && (pathname.startsWith("/login") || pathname.startsWith("/register"))) {
+    const target = role === "DOCTOR" ? "/doctor/dashboard" : "/patient/dashboard"
+    return NextResponse.redirect(new URL(target, req.url))
   }
 
-  // Rate limiting for API endpoints
-  const limited = await applyRateLimiting(req, !!token, null)
+  // Rate limiting (API routes only)
+  const limited = await applyRateLimiting(req, !!userId, userId)
   if (limited) return limited
-
-  return NextResponse.next()
-}
+})
 
 export const config = {
   matcher: [
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
+    "/__clerk/:path*",
   ],
 }

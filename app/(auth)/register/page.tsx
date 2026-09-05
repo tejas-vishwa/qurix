@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { BackButton } from "@/components/BackButton"
-import { Mail, CheckCircle2, ArrowRight, Loader2, RefreshCw, User, Stethoscope } from "lucide-react"
+import { Mail, CheckCircle2, ArrowRight, Loader2, RefreshCw } from "lucide-react"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -180,10 +180,15 @@ export default function RegisterPage() {
       })
 
       if (!signInRes?.error) {
-        window.location.href = role === "DOCTOR" ? "/doctor/dashboard" : "/patient/dashboard"
+        if (role === "DOCTOR") {
+          router.push("/doctor/dashboard")
+        } else {
+          router.push("/patient/dashboard")
+        }
       } else {
-        window.location.href = "/login?registered=true"
+        router.push("/login?registered=true")
       }
+      router.refresh()
     } catch (err: any) {
       setError(err.message)
       setLoading(false)
@@ -264,38 +269,18 @@ export default function RegisterPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium leading-none">I am registering as</label>
-                    <div className="grid grid-cols-2 gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setRole("PATIENT")}
-                        className={`flex flex-col items-center justify-center p-3.5 rounded-xl border-2 transition-all ${
-                          role === "PATIENT"
-                            ? "border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm"
-                            : "border-border hover:border-muted-foreground/30 text-muted-foreground"
-                        }`}
-                        disabled={loading}
-                      >
-                        <User className="h-5 w-5 mb-1 text-emerald-600" />
-                        <span className="font-semibold text-sm">Patient</span>
-                        <span className="text-[10px] text-muted-foreground mt-0.5">Track personal health</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setRole("DOCTOR")}
-                        className={`flex flex-col items-center justify-center p-3.5 rounded-xl border-2 transition-all ${
-                          role === "DOCTOR"
-                            ? "border-blue-600 bg-blue-50/50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 shadow-sm"
-                            : "border-border hover:border-muted-foreground/30 text-muted-foreground"
-                        }`}
-                        disabled={loading}
-                      >
-                        <Stethoscope className="h-5 w-5 mb-1 text-blue-600" />
-                        <span className="font-semibold text-sm">Doctor</span>
-                        <span className="text-[10px] text-muted-foreground mt-0.5">Manage patient queue</span>
-                      </button>
-                    </div>
+                    <label className="text-sm font-medium leading-none" htmlFor="role">Account Type</label>
+                    <select
+                      id="role"
+                      name="role"
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={loading}
+                    >
+                      <option value="PATIENT">Patient</option>
+                      <option value="DOCTOR">Doctor</option>
+                    </select>
                   </div>
 
                   {/* Terms & Conditions */}

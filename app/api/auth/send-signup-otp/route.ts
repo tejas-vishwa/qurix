@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { seedDatabase } from "@/lib/seed-db"
 import { sendOtpEmail } from "@/lib/mailersend"
 import { SendOtpSchema, validateSchema } from "@/lib/validations"
 import {
@@ -44,7 +45,10 @@ export async function POST(req: Request) {
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: normalizedEmail },
-    }).catch(() => null)
+    }).catch(async () => {
+      await seedDatabase()
+      return await prisma.user.findUnique({ where: { email: normalizedEmail } })
+    })
 
     if (existingUser) {
       recordAuthFailure(clientIp, normalizedEmail)

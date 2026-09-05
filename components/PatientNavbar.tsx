@@ -2,12 +2,12 @@
 
 import { useState } from "react"
 import { signOut as nextAuthSignOut } from "next-auth/react"
+import { useClerk, UserButton } from "@clerk/nextjs"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LayoutDashboard, LineChart, LogOut, UploadCloud, Calendar, Menu, X, ChevronRight, User, Pill, Activity } from "lucide-react"
 import { QurixLogo } from "@/components/QurixLogo"
 import { ThemeToggle } from "@/components/ThemeToggle"
-import { UserAvatar } from "@/components/UserAvatar"
 import { Sparkles } from "lucide-react"
 
 interface PatientNavbarProps {
@@ -18,8 +18,12 @@ interface PatientNavbarProps {
 export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
+  const { signOut: clerkSignOut } = useClerk()
 
   const handleSignOut = async () => {
+    try {
+      await clerkSignOut()
+    } catch {}
     try {
       await nextAuthSignOut({ callbackUrl: '/login' })
     } catch {}
@@ -66,8 +70,7 @@ export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps
         <div className="hidden md:flex items-center space-x-4">
           <ThemeToggle />
           {userName && (
-            <div className="flex items-center space-x-2.5 px-3 py-1 bg-primary/5 rounded-full border border-primary/10">
-              <UserAvatar name={userName} size={28} priority />
+            <div className="flex items-center space-x-2 px-3 py-1.5 bg-primary/5 rounded-full border border-primary/10">
               <span className="text-sm font-medium">Hello, {userName}</span>
               {subscriptionTier === "QURIX_PLUS" && (
                 <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-0.5 rounded-full shadow-sm">
@@ -76,6 +79,7 @@ export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps
               )}
             </div>
           )}
+          <UserButton afterSignOutUrl="/login" />
           <button
             onClick={handleSignOut}
             className="flex items-center text-sm font-medium text-muted-foreground hover:text-destructive transition-colors"
@@ -125,7 +129,9 @@ export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps
             {/* Header User Badge */}
             {userName && (
               <div className="flex items-center space-x-3.5 p-4 rounded-2xl bg-card border border-border/80 shadow-sm">
-                <UserAvatar name={userName} size={42} priority />
+                <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold">
+                  <User className="h-5 w-5" />
+                </div>
                 <div>
                   <p className="text-xs text-primary uppercase font-bold tracking-wider">Signed in as</p>
                   <div className="flex items-center gap-2">

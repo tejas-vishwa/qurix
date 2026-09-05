@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next"
+import { ClerkProvider } from "@clerk/nextjs"
 import { Providers } from "./providers"
 import "./globals.css"
 
@@ -48,9 +49,23 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-background antialiased flex flex-col font-sans">
-        <Providers>
-          {children}
-        </Providers>
+        <ClerkProvider
+          signInUrl="/login"
+          signUpUrl="/register"
+          fallbackRedirectUrl="/dashboard"
+          signInFallbackRedirectUrl="/dashboard"
+          signUpFallbackRedirectUrl="/dashboard"
+          appearance={{
+            variables: {
+              colorPrimary: "#059669",
+              colorTextOnPrimaryBackground: "#ffffff",
+            },
+          }}
+        >
+          <Providers>
+            {children}
+          </Providers>
+        </ClerkProvider>
       </body>
     </html>
   )

@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma"
-import { extractNameFromEmail } from "@/lib/utils"
 
 export interface SyncUserParams {
   clerkId: string
@@ -70,7 +69,7 @@ export async function syncClerkUserWithPrisma({
         id: clerkId,
         email: normalizedEmail,
         passwordHash: "clerk_managed_auth",
-        name: name || extractNameFromEmail(normalizedEmail),
+        name: name || normalizedEmail.split("@")[0],
         role: role || "PATIENT",
         emailVerified: new Date(),
         subscriptionTier: "FREE",

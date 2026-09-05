@@ -20,20 +20,6 @@ export const UserProfileUpdateSchema = z
         z.null(),
       ])
       .optional(),
-    height: z
-      .union([
-        z.number().positive("Height must be positive").max(300, "Invalid height"),
-        z.string().regex(/^\d+(\.\d+)?$/, "Height must be a valid number").transform((val) => parseFloat(val)),
-        z.null(),
-      ])
-      .optional(),
-    weight: z
-      .union([
-        z.number().positive("Weight must be positive").max(500, "Invalid weight"),
-        z.string().regex(/^\d+(\.\d+)?$/, "Weight must be a valid number").transform((val) => parseFloat(val)),
-        z.null(),
-      ])
-      .optional(),
     location: z
       .string()
       .trim()

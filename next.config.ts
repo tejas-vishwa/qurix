@@ -7,13 +7,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  images: {
-    formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 86400,
-    remotePatterns: [
-      { protocol: 'https', hostname: '**' },
-    ],
-  },
   serverExternalPackages: [
     "@libsql/client",
     "@prisma/adapter-libsql",

@@ -5,16 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AlertCircle, FileText, Share2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import dynamicImport from "next/dynamic"
 import { ShareCodeButton } from "./ShareCodeButton"
 import { DeleteReportButton } from "@/components/DeleteReportButton"
-import { UserAvatar } from "@/components/UserAvatar"
 
 export const dynamic = "force-dynamic"
-
-const DynamicBiomarkerOverview = dynamicImport(
-  () => import("@/components/DynamicBiomarkerOverview").then((m) => m.DynamicBiomarkerOverview)
-)
 
 export default async function PatientDashboard() {
   const session = await getAuthSession()
@@ -128,15 +122,10 @@ export default async function PatientDashboard() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/60 backdrop-blur-xl p-5 rounded-2xl border border-border/70 shadow-sm">
-        <div className="flex items-center space-x-4">
-          <UserAvatar name={session?.user?.name || "Patient"} size={52} priority />
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-              Welcome back{session?.user?.name ? `, ${session.user.name}` : ""}
-            </h1>
-            <p className="text-muted-foreground text-sm">Here is your comprehensive health overview.</p>
-          </div>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">Welcome back, here is your health overview.</p>
         </div>
         <div className="flex gap-2">
           <Link href="/patient/upload">
@@ -147,8 +136,6 @@ export default async function PatientDashboard() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Dynamic Asynchronously Loaded Biomarkers Snapshot */}
-        <DynamicBiomarkerOverview />
         {/* Alerts Panel */}
         <Card className={`border-t-4 ${overallStatus === 'CRITICAL' ? 'border-t-red-600 animate-pulse bg-red-50 dark:bg-red-950/20' : overallStatus === 'ATTENTION_NEEDED' ? 'border-t-amber-500' : 'border-t-green-500'}`}>
           <CardHeader className="pb-3">

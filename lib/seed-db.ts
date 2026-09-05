@@ -192,8 +192,6 @@ export async function createTablesIfNotExist() {
     `ALTER TABLE "User" ADD COLUMN "paymentStatus" TEXT NOT NULL DEFAULT 'NONE';`,
     `ALTER TABLE "User" ADD COLUMN "gender" TEXT;`,
     `ALTER TABLE "User" ADD COLUMN "age" INTEGER;`,
-    `ALTER TABLE "User" ADD COLUMN "height" REAL;`,
-    `ALTER TABLE "User" ADD COLUMN "weight" REAL;`,
     `ALTER TABLE "User" ADD COLUMN "location" TEXT;`,
     `ALTER TABLE "User" ADD COLUMN "emailVerified" DATETIME;`,
     `ALTER TABLE "LabPartner" ADD COLUMN "yearEstablished" INTEGER;`,
@@ -217,12 +215,6 @@ export async function createTablesIfNotExist() {
   // Attempt to add new columns to existing User table (will fail silently if they already exist)
   try {
     await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "age" INTEGER;`)
-  } catch (err) {}
-  try {
-    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "height" REAL;`)
-  } catch (err) {}
-  try {
-    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "weight" REAL;`)
   } catch (err) {}
   try {
     await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "location" TEXT;`)

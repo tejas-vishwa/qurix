@@ -3,12 +3,11 @@ import { z } from "zod"
 export const RegisterSchema = z
   .object({
     name: z
-      .string()
+      .string({ required_error: "Name is required" })
       .trim()
+      .min(2, "Name must be at least 2 characters")
       .max(100, "Name cannot exceed 100 characters")
-      .regex(/^[a-zA-Z\s.'-]+$/, "Name contains invalid characters")
-      .optional()
-      .or(z.literal("")),
+      .regex(/^[a-zA-Z\s.'-]+$/, "Name contains invalid characters"),
     email: z
       .string({ required_error: "Email is required" })
       .trim()

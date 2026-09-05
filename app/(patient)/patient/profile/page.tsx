@@ -20,8 +20,6 @@ export default function ProfilePage() {
     name: "",
     gender: "",
     age: "",
-    height: "",
-    weight: "",
     location: "",
   })
 
@@ -35,8 +33,6 @@ export default function ProfilePage() {
             name: data.name || "",
             gender: data.gender || "",
             age: data.age?.toString() || "",
-            height: data.height?.toString() || "",
-            weight: data.weight?.toString() || "",
             location: data.location || "",
           })
         }
@@ -157,38 +153,6 @@ export default function ProfilePage() {
                   value={formData.age}
                   onChange={handleChange}
                   placeholder="e.g. 35"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="height">Height (cm)</Label>
-                <Input
-                  id="height"
-                  name="height"
-                  type="number"
-                  step="0.1"
-                  min="30"
-                  max="250"
-                  value={formData.height}
-                  onChange={handleChange}
-                  placeholder="e.g. 175"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="weight">Weight (kg)</Label>
-                <Input
-                  id="weight"
-                  name="weight"
-                  type="number"
-                  step="0.1"
-                  min="10"
-                  max="300"
-                  value={formData.weight}
-                  onChange={handleChange}
-                  placeholder="e.g. 70.5"
                 />
               </div>
             </div>

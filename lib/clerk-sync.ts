@@ -56,7 +56,9 @@ export async function syncClerkUserWithPrisma({
 
     if (user) {
       // Only write to DB if name is missing or invalid — avoids a pointless UPDATE on every page load
-      if ((!user.name || user.name.toLowerCase() === "patient" || user.name.startsWith("user_")) && name && name.toLowerCase() !== "patient" && !name.startsWith("user_")) {
+      const isCurrentNameInvalid = !user.name || user.name.toLowerCase() === "patient" || user.name.toLowerCase() === "user" || user.name.startsWith("user_")
+      const isNewNameValid = name && name.toLowerCase() !== "patient" && name.toLowerCase() !== "user" && !name.startsWith("user_")
+      if (isCurrentNameInvalid && isNewNameValid) {
         user = await prisma.user.update({
           where: { id: user.id },
           data: { name },
@@ -66,9 +68,9 @@ export async function syncClerkUserWithPrisma({
       return user
     }
 
-    const initialName = (name && name.toLowerCase() !== "patient" && !name.startsWith("user_"))
+    const initialName = (name && name.toLowerCase() !== "patient" && name.toLowerCase() !== "user" && !name.startsWith("user_"))
       ? name
-      : (normalizedEmail.includes("@") ? normalizedEmail.split("@")[0] : "User")
+      : (normalizedEmail.includes("@") && !normalizedEmail.startsWith("user_") ? normalizedEmail.split("@")[0] : "")
 
     // Create fresh user record in Prisma
     user = await prisma.user.create({

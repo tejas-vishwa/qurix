@@ -26,7 +26,18 @@ export function isValidName(name?: string | null): boolean {
   const trimmed = name.trim()
   if (!trimmed) return false
   if (trimmed.startsWith("user_")) return false
-  if (trimmed.toLowerCase() === "patient") return false
+  const lower = trimmed.toLowerCase()
+  if (
+    lower === "patient" ||
+    lower === "user" ||
+    lower === "demo user" ||
+    lower === "undefined" ||
+    lower === "null" ||
+    lower === "none" ||
+    lower === "n/a"
+  ) {
+    return false
+  }
   return true
 }
 
@@ -56,7 +67,7 @@ export function PatientNavbar({ userName, userEmail, subscriptionTier }: Patient
   const [displayName, setDisplayName] = useState<string>(() => resolveInitialName(userName, userEmail))
 
   useEffect(() => {
-    // 1. If server prop gives a valid human name
+    // 1. If server prop gives a valid human name (not "User")
     if (isValidName(userName)) {
       setDisplayName(userName!.trim())
       if (typeof window !== "undefined") {
@@ -65,7 +76,7 @@ export function PatientNavbar({ userName, userEmail, subscriptionTier }: Patient
       return
     }
 
-    // 2. Check localStorage
+    // 2. Check localStorage for user-saved name from Profile
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("qurix_user_name")
       if (isValidName(stored)) {
@@ -74,7 +85,7 @@ export function PatientNavbar({ userName, userEmail, subscriptionTier }: Patient
       }
     }
 
-    // 3. Check Clerk user
+    // 3. Check Clerk user in-memory
     if (clerkUser) {
       const cName = clerkUser.fullName ||
         (clerkUser.firstName && clerkUser.lastName ? `${clerkUser.firstName} ${clerkUser.lastName}` : clerkUser.firstName) ||
@@ -104,6 +115,7 @@ export function PatientNavbar({ userName, userEmail, subscriptionTier }: Patient
       if (typeof window !== "undefined") {
         localStorage.setItem("qurix_user_name", emailName)
       }
+      return
     }
 
     // 5. Fetch latest profile from DB
@@ -116,7 +128,7 @@ export function PatientNavbar({ userName, userEmail, subscriptionTier }: Patient
           if (typeof window !== "undefined") {
             localStorage.setItem("qurix_user_name", u.name)
           }
-        } else if (!displayName && isValidName(formatNameFromEmail(u?.email))) {
+        } else if (isValidName(formatNameFromEmail(u?.email))) {
           const uEmailName = formatNameFromEmail(u.email)
           setDisplayName(uEmailName)
           if (typeof window !== "undefined") {
@@ -158,8 +170,18 @@ export function PatientNavbar({ userName, userEmail, subscriptionTier }: Patient
     { name: "Profile", href: "/patient/profile", icon: User, desc: "Manage personal information" },
   ]
 
-  const fallbackLoginName = formatNameFromEmail(userEmail) || "User"
-  const greetingName = displayName || fallbackLoginName
+  const clerkEmail = clerkUser?.primaryEmailAddress?.emailAddress || clerkUser?.emailAddresses?.[0]?.emailAddress
+  const clerkName = clerkUser?.fullName ||
+    (clerkUser?.firstName && clerkUser?.lastName ? `${clerkUser.firstName} ${clerkUser.lastName}` : clerkUser?.firstName) ||
+    clerkUser?.username ||
+    formatNameFromEmail(clerkEmail)
+
+  const fallbackLoginName = formatNameFromEmail(userEmail) || (isValidName(clerkName) ? clerkName : "")
+  const greetingName =
+    (isValidName(displayName) ? displayName : null) ||
+    (isValidName(fallbackLoginName) ? fallbackLoginName : null) ||
+    (typeof window !== "undefined" && isValidName(localStorage.getItem("qurix_user_name")) ? localStorage.getItem("qurix_user_name") : null) ||
+    "Member"
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-md">

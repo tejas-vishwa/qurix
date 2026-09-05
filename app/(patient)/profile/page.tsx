@@ -31,7 +31,7 @@ export default function ProfilePage() {
       const u = data?.user || data;
       if (u) {
         setFormData({
-          name: u.name && u.name.toLowerCase() !== "patient" && !u.name.startsWith("user_") ? u.name : "",
+          name: u.name && u.name.toLowerCase() !== "patient" && u.name.toLowerCase() !== "user" && !u.name.startsWith("user_") ? u.name : "",
           email: u.email || "",
           age: u.age ? u.age.toString() : "",
           location: u.location || "",

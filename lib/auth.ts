@@ -281,7 +281,18 @@ function isValidUserName(name?: string | null): boolean {
   const trimmed = name.trim()
   if (!trimmed) return false
   if (trimmed.startsWith("user_")) return false
-  if (trimmed.toLowerCase() === "patient") return false
+  const lower = trimmed.toLowerCase()
+  if (
+    lower === "patient" ||
+    lower === "user" ||
+    lower === "demo user" ||
+    lower === "undefined" ||
+    lower === "null" ||
+    lower === "none" ||
+    lower === "n/a"
+  ) {
+    return false
+  }
   return true
 }
 
@@ -331,7 +342,7 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
             ? rawRole
             : "PATIENT"
 
-        // 2. Fast DB Lookup: check Prisma directly (5-15ms) before hitting slow WAN API
+        // 2. Fast DB Lookup: check Prisma directly (5-15ms)
         const searchConditions: any[] = [{ id: clerkId }]
         if (primaryEmail) {
           searchConditions.push({ email: primaryEmail.toLowerCase().trim() })
@@ -342,12 +353,45 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
           select: { id: true, name: true, email: true, role: true, subscriptionTier: true, paymentStatus: true }
         }).catch(() => null)
 
+        // If neither DB nor claims has a valid human name, fetch Clerk user details once
+        if (!isValidUserName(rawName) && (!dbUser || !isValidUserName(dbUser.name))) {
+          try {
+            const curUser = await clerkCurrentUser()
+            if (curUser) {
+              const curName =
+                curUser.fullName ||
+                (curUser.firstName && curUser.lastName ? `${curUser.firstName} ${curUser.lastName}` : curUser.firstName) ||
+                curUser.username ||
+                ""
+              if (isValidUserName(curName)) {
+                rawName = curName
+              }
+              const curEmail = curUser.emailAddresses?.[0]?.emailAddress
+              if (curEmail) {
+                primaryEmail = curEmail
+                if (!isValidUserName(rawName)) {
+                  rawName = formatNameFromEmail(curEmail)
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("[getAuthSession] clerkCurrentUser error:", e)
+          }
+        }
+
         if (dbUser) {
           if (isValidUserName(dbUser.name)) {
             rawName = dbUser.name
-          } else if (!isValidUserName(rawName) && dbUser.email) {
+          } else if (isValidUserName(rawName)) {
+            // Self-heal: update Prisma DB with real name so future requests don't need clerkCurrentUser
+            prisma.user.update({
+              where: { id: dbUser.id },
+              data: { name: rawName },
+            }).catch(() => {})
+          } else if (dbUser.email) {
             rawName = formatNameFromEmail(dbUser.email)
           }
+
           if (!primaryEmail && dbUser.email) {
             primaryEmail = dbUser.email
           }
@@ -356,37 +400,18 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
             name: rawName || dbUser.name,
           })
         } else {
-          // New user not yet in DB: fetch full details from Clerk to provision
-          if (!primaryEmail || !isValidUserName(rawName)) {
-            try {
-              const curUser = await clerkCurrentUser()
-              if (curUser) {
-                const curName = curUser.fullName ||
-                  (curUser.firstName && curUser.lastName ? `${curUser.firstName} ${curUser.lastName}` : curUser.firstName) ||
-                  curUser.username ||
-                  ""
-                if (isValidUserName(curName)) {
-                  rawName = curName
-                }
-                const curEmail = curUser.emailAddresses?.[0]?.emailAddress
-                if (curEmail) {
-                  primaryEmail = curEmail
-                }
-              }
-            } catch (e) {
-              console.warn("[getAuthSession] clerkCurrentUser error:", e)
-            }
-          }
-
           if (!primaryEmail) {
             primaryEmail = `${clerkId}@clerk.user`
+          }
+          if (!isValidUserName(rawName) && primaryEmail && !primaryEmail.includes("@clerk.user")) {
+            rawName = formatNameFromEmail(primaryEmail)
           }
 
           // Sync to DB in background
           syncClerkUserWithPrisma({
             clerkId,
             email: primaryEmail,
-            name: rawName,
+            name: isValidUserName(rawName) ? rawName : undefined,
             role: validRole,
           }).catch(() => {})
         }
@@ -396,7 +421,7 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
           if (primaryEmail && !primaryEmail.includes("@clerk.user")) {
             rawName = formatNameFromEmail(primaryEmail)
           } else {
-            rawName = "User"
+            rawName = ""
           }
         }
 
@@ -404,7 +429,7 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
           user: {
             id: dbUser?.id || clerkId,
             email: dbUser?.email || primaryEmail,
-            name: rawName,
+            name: rawName || "",
             role: (dbUser?.role as string) || validRole,
             subscriptionTier: dbUser?.subscriptionTier || "FREE",
             paymentStatus: dbUser?.paymentStatus || "NONE",

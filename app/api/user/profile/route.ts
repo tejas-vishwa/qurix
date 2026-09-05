@@ -33,7 +33,18 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json(user)
+    const cleanName =
+      user.name &&
+      user.name.toLowerCase() !== "user" &&
+      user.name.toLowerCase() !== "patient" &&
+      !user.name.startsWith("user_")
+        ? user.name
+        : ""
+
+    return NextResponse.json({
+      ...user,
+      name: cleanName,
+    })
   } catch (error) {
     console.error("Error fetching profile:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })

@@ -30,10 +30,10 @@ export default function ProfilePage() {
       try {
         const res = await fetch("/api/user/profile")
         if (res.ok) {
-          const data = await res.json()
-          const resolvedName = (data.name && !data.name.startsWith("user_"))
-            ? data.name
-            : (clerkUser?.fullName || clerkUser?.firstName || "")
+          const rawName = data.name && !data.name.startsWith("user_") && data.name.toLowerCase() !== "user" && data.name.toLowerCase() !== "patient" ? data.name : ""
+          const clerkName = clerkUser?.fullName || clerkUser?.firstName || ""
+          const storedName = typeof window !== "undefined" ? localStorage.getItem("qurix_user_name") : ""
+          const resolvedName = rawName || clerkName || (storedName && storedName.toLowerCase() !== "user" && storedName.toLowerCase() !== "patient" ? storedName : "")
 
           setFormData({
             name: resolvedName,
@@ -43,6 +43,7 @@ export default function ProfilePage() {
           })
           if (resolvedName) {
             localStorage.setItem("qurix_user_name", resolvedName)
+            window.dispatchEvent(new CustomEvent("qurix:profile-updated", { detail: { name: resolvedName } }))
           }
         }
       } catch (error) {

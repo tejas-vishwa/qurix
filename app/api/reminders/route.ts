@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
-import { getServerSession, authOptions } from "@/lib/auth";
+import { getServerSession, authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { CreateReminderSchema, DeleteReminderQuerySchema, validateSchema } from "@/lib/validations"
+
+export const dynamic = "force-dynamic"
 
 // Get all reminders for a user
 export async function GET(request: Request) {
@@ -11,17 +13,34 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const prescriptionId = searchParams.get('prescriptionId')
+  const prescriptionId = searchParams.get("prescriptionId")
 
   try {
-    const whereClause: any = { patientId: session.user.id }
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: session.user.id },
+          { email: session.user.email ? session.user.email.toLowerCase().trim() : "" },
+        ],
+      },
+    }).catch(() => null)
+
+    const effectiveUserId = user ? user.id : session.user.id
+
+    const whereClause: any = {
+      OR: [
+        { patientId: effectiveUserId },
+        { patientId: session.user.id },
+      ],
+    }
+
     if (prescriptionId && typeof prescriptionId === "string" && prescriptionId.trim().length > 0) {
       whereClause.prescriptionId = prescriptionId.trim()
     }
 
     const reminders = await prisma.medicineReminder.findMany({
       where: whereClause,
-      orderBy: { reminderTime: 'asc' }
+      orderBy: { reminderTime: "asc" },
     })
 
     return NextResponse.json(reminders)
@@ -52,14 +71,36 @@ export async function POST(request: Request) {
 
     const { prescriptionId, medicineName, reminderTime } = validation.data
 
+    let userExists = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: session.user.id },
+          { email: session.user.email ? session.user.email.toLowerCase().trim() : "" },
+        ],
+      },
+    })
+
+    if (!userExists) {
+      userExists = await prisma.user.create({
+        data: {
+          id: session.user.id,
+          email: session.user.email || `${session.user.id}@clerk.user`,
+          name: session.user.name || "Patient",
+          passwordHash: "clerk_managed_auth",
+          role: "PATIENT",
+        },
+      }).catch(() => null)
+    }
+
+    const patientId = userExists ? userExists.id : session.user.id
+
     const newReminder = await prisma.medicineReminder.create({
       data: {
-        patientId: session.user.id,
+        patientId,
         prescriptionId: prescriptionId || null,
         medicineName,
         reminderTime,
-        isActive: true,
-      }
+      },
     })
 
     return NextResponse.json(newReminder)
@@ -77,24 +118,34 @@ export async function DELETE(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const rawId = searchParams.get('id')
+  const id = searchParams.get("id")
 
-  // 1. Strict Schema Validation on Query Param
-  const validation = validateSchema(DeleteReminderQuerySchema, { id: rawId })
-  if (!validation.success) {
-    return validation.response
+  if (!id) {
+    return NextResponse.json({ error: "Reminder ID is required" }, { status: 400 })
   }
 
-  const { id } = validation.data
-
   try {
-    // Check ownership
-    const reminder = await prisma.medicineReminder.findUnique({ where: { id } })
-    if (!reminder || reminder.patientId !== session.user.id) {
-      return NextResponse.json({ error: "Not found or unauthorized" }, { status: 404 })
-    }
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: session.user.id },
+          { email: session.user.email ? session.user.email.toLowerCase().trim() : "" },
+        ],
+      },
+    }).catch(() => null)
 
-    await prisma.medicineReminder.delete({ where: { id } })
+    const effectiveUserId = user ? user.id : session.user.id
+
+    await prisma.medicineReminder.deleteMany({
+      where: {
+        id,
+        OR: [
+          { patientId: effectiveUserId },
+          { patientId: session.user.id },
+        ],
+      },
+    })
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error deleting reminder:", error)

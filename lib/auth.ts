@@ -1,9 +1,12 @@
+import { auth as clerkAuth } from "@clerk/nextjs/server"
+import { redirect } from "next/navigation"
+import { cache } from "react"
 import { NextAuthOptions } from "next-auth"
 import { getServerSession as getNextAuthSession } from "next-auth/next"
 import CredentialsProvider from "next-auth/providers/credentials"
 import EmailProvider from "next-auth/providers/email"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
-import { auth as clerkAuth, currentUser as clerkCurrentUser } from "@clerk/nextjs/server"
+import { auth as clerkAuthFn, currentUser as clerkCurrentUser } from "@clerk/nextjs/server"
 import { syncClerkUserWithPrisma, getCachedSyncedUser } from "@/lib/clerk-sync"
 import { compare } from "bcryptjs"
 import { prisma } from "@/lib/prisma"
@@ -28,7 +31,7 @@ export const authOptions: NextAuthOptions = {
   secret: NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
   pages: {
     signIn: "/login",
@@ -72,7 +75,6 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        // 1. Check Rate Limiting & Exponential Backoff for this account / IP
         const authRateLimit = checkAuthLimit(clientIp, emailLower)
         if (!authRateLimit.allowed) {
           if (authRateLimit.reason === "ACCOUNT_BACKOFF_ACTIVE") {
@@ -102,7 +104,6 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Your account has been suspended.")
           }
 
-          // Case A: Sign In via 6-Digit Email OTP
           if (otp) {
             const verificationToken = await prisma.verificationToken.findFirst({
               where: {
@@ -117,12 +118,10 @@ export const authOptions: NextAuthOptions = {
               throw new Error("Invalid or expired verification code.")
             }
 
-            // Clean up used OTP token
             await prisma.verificationToken.deleteMany({
               where: { identifier: `signin-otp:${emailLower}` },
             }).catch(() => {})
 
-            // Mark email as verified if not already
             if (!user.emailVerified) {
               await prisma.user.update({
                 where: { id: user.id },
@@ -130,13 +129,11 @@ export const authOptions: NextAuthOptions = {
               }).catch(() => {})
             }
           } else if (password) {
-            // Case B: Sign In via Password
             let isPasswordValid = false
             if (user.passwordHash) {
               isPasswordValid = await compare(password, user.passwordHash)
             }
 
-            // Support standard demo credentials (demo1234, BB@1234@QURIX) seamlessly
             if (!isPasswordValid && (emailLower.includes("demo") || emailLower.includes("biobytes") || emailLower.includes("qurix"))) {
               if (
                 password === "BB@1234@QURIX" ||
@@ -163,7 +160,6 @@ export const authOptions: NextAuthOptions = {
             }
           }
 
-          // Successful authentication: Reset consecutive failures
           recordAuthSuccess(clientIp, emailLower)
 
           await prisma.activityLog.create({
@@ -226,19 +222,20 @@ export interface AppUserSession {
   }
 }
 
-export async function getAuthSession(_options?: any): Promise<AppUserSession | null> {
-  // 1. Try Clerk authentication if keys are configured
+// ─── React.cache: deduplicate calls within the same request ───────────────────
+// If layout + page both call getAuthSession(), it only runs ONCE per request.
+export const getAuthSession = cache(async (_options?: any): Promise<AppUserSession | null> => {
   const hasClerkKeys =
     !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&
     !!process.env.CLERK_SECRET_KEY
 
   if (hasClerkKeys) {
     try {
-      const authObj = await clerkAuth()
+      const authObj = await clerkAuthFn()
       const clerkId = authObj?.userId
 
       if (clerkId) {
-        // Fast-path 1: Return immediately from in-memory cache if recently synced
+        // 1. Fastest path: in-memory cache hit (same serverless instance)
         const cachedUser = getCachedSyncedUser(clerkId)
         if (cachedUser) {
           return {
@@ -253,68 +250,42 @@ export async function getAuthSession(_options?: any): Promise<AppUserSession | n
           }
         }
 
+        // 2. Fast path: build session from JWT claims — NO external HTTP call, NO DB hit
         const claims = (authObj?.sessionClaims as any) || {}
-        let primaryEmail = claims.email || claims.primary_email || ""
-        let rawName = claims.name || claims.full_name || ""
-        let rawRole = (claims.role || claims.public_metadata?.role || claims.metadata?.role || "PATIENT").toUpperCase()
-
-        // Only make external HTTP request to Clerk if claims do not have the email
-        if (!primaryEmail) {
-          try {
-            const clerkUser = await clerkCurrentUser()
-            if (clerkUser) {
-              primaryEmail =
-                clerkUser.emailAddresses?.find(
-                  (e) => e.id === clerkUser.primaryEmailAddressId
-                )?.emailAddress ||
-                clerkUser.emailAddresses?.[0]?.emailAddress ||
-                ""
-
-              rawName =
-                `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() ||
-                clerkUser.username ||
-                ""
-
-              rawRole = ((clerkUser.publicMetadata?.role as string) || rawRole).toUpperCase()
-            }
-          } catch (uErr) {
-            console.warn("[getAuthSession] currentUser fetch note:", uErr)
-          }
-        }
-
-        if (!primaryEmail) {
-          primaryEmail = `${clerkId}@clerk.user`
-        }
-
-        if (!rawName) {
-          rawName = primaryEmail.split("@")[0]
-        }
+        const primaryEmail =
+          claims.email ||
+          claims.primary_email ||
+          `${clerkId}@clerk.user`
+        const rawName = claims.name || claims.full_name || primaryEmail.split("@")[0]
+        const rawRole = (
+          claims.role ||
+          claims.public_metadata?.role ||
+          claims.unsafe_metadata?.role ||
+          "PATIENT"
+        ).toUpperCase()
 
         const validRole =
           rawRole === "DOCTOR" || rawRole === "ADMIN" || rawRole === "LAB"
             ? rawRole
             : "PATIENT"
 
-        let dbUser = null
-        try {
-          dbUser = await syncClerkUserWithPrisma({
-            clerkId,
+        // 3. Sync to DB in background — don't block the page render
+        syncClerkUserWithPrisma({
+          clerkId,
+          email: primaryEmail,
+          name: rawName,
+          role: validRole,
+        }).catch(() => {})
+
+        // Return immediately from JWT claims — zero DB wait
+        return {
+          user: {
+            id: clerkId,
             email: primaryEmail,
             name: rawName,
             role: validRole,
-          })
-        } catch (syncErr) {
-          console.error("[getAuthSession] DB sync note:", syncErr)
-        }
-
-        return {
-          user: {
-            id: dbUser ? dbUser.id : clerkId,
-            email: dbUser ? dbUser.email : primaryEmail,
-            name: (dbUser && dbUser.name) || rawName,
-            role: (dbUser && dbUser.role) || validRole,
-            subscriptionTier: (dbUser && dbUser.subscriptionTier) || "FREE",
-            paymentStatus: (dbUser && dbUser.paymentStatus) || "NONE",
+            subscriptionTier: "FREE",
+            paymentStatus: "NONE",
           },
         }
       }
@@ -323,7 +294,7 @@ export async function getAuthSession(_options?: any): Promise<AppUserSession | n
     }
   }
 
-  // 2. Fall back to NextAuth session
+  // NextAuth fallback (for non-Clerk users)
   try {
     const session = await getNextAuthSession(authOptions)
     if (session?.user?.id) {
@@ -334,7 +305,6 @@ export async function getAuthSession(_options?: any): Promise<AppUserSession | n
   }
 
   return null
-}
+})
 
 export { getAuthSession as getServerSession }
-

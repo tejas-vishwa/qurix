@@ -7,9 +7,11 @@ import { Footer } from "@/components/Footer"
 export const dynamic = "force-dynamic"
 
 export default async function PatientLayout({ children }: { children: React.ReactNode }) {
+  // React.cache means this shares the result with any child page that also calls getAuthSession
+  // No double DB/HTTP call — both layout and page share one cached result per request
   const session = await getAuthSession()
   const userRole = (session?.user?.role || "PATIENT").toUpperCase()
-  
+
   if (!session || (userRole !== "PATIENT" && userRole !== "ADMIN")) {
     redirect("/login")
   }

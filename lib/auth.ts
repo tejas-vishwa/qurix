@@ -226,7 +226,17 @@ export interface AppUserSession {
 }
 
 export async function getAuthSession(_options?: any): Promise<AppUserSession | null> {
-  // 1. Try Clerk authentication if keys are configured
+  // 1. Primary: NextAuth session (active authentication)
+  try {
+    const session = await getNextAuthSession(authOptions)
+    if (session?.user?.id) {
+      return session as AppUserSession
+    }
+  } catch (error) {
+    console.error("[getAuthSession] NextAuth session error:", error)
+  }
+
+  // 2. Preserved backend fallback: Clerk authentication for future implementation
   const hasClerkKeys =
     !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&
     !!process.env.CLERK_SECRET_KEY
@@ -238,7 +248,7 @@ export async function getAuthSession(_options?: any): Promise<AppUserSession | n
       const clerkId = authObj?.userId
 
       if (clerkId) {
-        // Fast-path 1: Return immediately from in-memory cache if recently synced
+        // Fast-path: Return immediately from in-memory cache if recently synced
         const cachedUser = getCachedSyncedUser(clerkId)
         if (cachedUser) {
           return {
@@ -321,16 +331,6 @@ export async function getAuthSession(_options?: any): Promise<AppUserSession | n
     } catch (error) {
       console.error("[getAuthSession] Clerk session error:", error)
     }
-  }
-
-  // 2. Fall back to NextAuth session
-  try {
-    const session = await getNextAuthSession(authOptions)
-    if (session?.user?.id) {
-      return session as AppUserSession
-    }
-  } catch (error) {
-    console.error("[getAuthSession] NextAuth session error:", error)
   }
 
   return null

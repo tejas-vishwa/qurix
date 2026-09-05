@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { signOut as nextAuthSignOut } from "next-auth/react"
-import { useClerk, UserButton } from "@clerk/nextjs"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LayoutDashboard, LogOut, Menu, X, KeyRound, ChevronRight, Stethoscope } from "lucide-react"
@@ -12,12 +11,8 @@ import { ThemeToggle } from "@/components/ThemeToggle"
 export function DoctorNavbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
-  const { signOut: clerkSignOut } = useClerk()
 
   const handleSignOut = async () => {
-    try {
-      await clerkSignOut()
-    } catch {}
     try {
       await nextAuthSignOut({ callbackUrl: '/login' })
     } catch {}
@@ -58,7 +53,6 @@ export function DoctorNavbar() {
         {/* Desktop Controls */}
         <div className="hidden md:flex items-center gap-3">
           <ThemeToggle />
-          <UserButton afterSignOutUrl="/login" />
           <button
             onClick={handleSignOut}
             className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center border-l border-border pl-3"

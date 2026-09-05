@@ -28,7 +28,6 @@ import Link from "next/link"
 interface DemoAccount {
   name: string
   email: string
-  password: string
   role: "PATIENT" | "DOCTOR" | "ADMIN"
   roleLabel: string
   targetUrl: string
@@ -41,7 +40,6 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     name: "Priya Sharma",
     email: "priya@demo.com",
-    password: "demo1234",
     role: "PATIENT",
     roleLabel: "Patient",
     category: "patient",
@@ -51,7 +49,6 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     name: "Tejas Vishwakarma",
     email: "tejas@demo.com",
-    password: "demo1234",
     role: "PATIENT",
     roleLabel: "Patient (Plus)",
     category: "patient",
@@ -62,7 +59,6 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     name: "Sankalp Verma",
     email: "sankalp@demo.com",
-    password: "demo1234",
     role: "PATIENT",
     roleLabel: "Patient",
     category: "patient",
@@ -72,7 +68,6 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     name: "Utkarsh Singh",
     email: "utkarsh@demo.com",
-    password: "demo1234",
     role: "PATIENT",
     roleLabel: "Patient",
     category: "patient",
@@ -82,7 +77,6 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     name: "Dr. Rahul Verma",
     email: "doctor@demo.com",
-    password: "demo1234",
     role: "DOCTOR",
     roleLabel: "General Physician",
     category: "doctor",
@@ -92,7 +86,6 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     name: "QURIX Admin",
     email: "admin@qurix.health",
-    password: "admin1234",
     role: "ADMIN",
     roleLabel: "System Admin",
     category: "admin",
@@ -102,7 +95,6 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     name: "Super Admin",
     email: "admin@teamqurix.com",
-    password: "demo1234",
     role: "ADMIN",
     roleLabel: "Super Admin",
     category: "admin",
@@ -119,8 +111,8 @@ export default function LoginPage() {
   const [viewMode, setViewMode] = useState<"both" | "demo" | "clerk">("both")
 
   // Direct credentials form state
-  const [email, setEmail] = useState("priya@demo.com")
-  const [password, setPassword] = useState("demo1234")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [signingInEmail, setSigningInEmail] = useState<string | null>(null)
@@ -162,12 +154,12 @@ export default function LoginPage() {
   // Open the Password Lock Modal
   const openDemoModal = (account: DemoAccount) => {
     setSelectedDemoUser(account)
-    setDemoPassword(account.password)
+    setDemoPassword("")
     setDemoError("")
     setShowDemoPassword(false)
     setIsDemoDialogOpen(true)
     setEmail(account.email)
-    setPassword(account.password)
+    setPassword("")
   }
 
   // Submit password in the Demo Lock Modal
@@ -315,7 +307,7 @@ export default function LoginPage() {
             Sign in to <span className="bg-gradient-to-r from-emerald-500 to-cyan-500 bg-clip-text text-transparent">Qurix</span>
           </h1>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Choose between instant 1-click Demo Accounts with passwords or log in securely with Clerk.
+            Choose between Demo Accounts or log in securely with Clerk.
           </p>
         </div>
 
@@ -346,7 +338,7 @@ export default function LoginPage() {
                     <div>
                       <h2 className="text-lg font-bold text-foreground">Demo Accounts Sign In</h2>
                       <p className="text-xs text-muted-foreground">
-                        Pre-configured test profiles • Passwords included
+                        Pre-configured test profiles • Password protected
                       </p>
                     </div>
                   </div>
@@ -362,7 +354,7 @@ export default function LoginPage() {
                   <p className="text-xs font-semibold text-foreground uppercase tracking-wider">
                     Direct Credentials Sign-In
                   </p>
-                  <span className="text-[11px] text-muted-foreground">Click any card below to auto-fill</span>
+                  <span className="text-[11px] text-muted-foreground">Enter credentials or unlock a card below</span>
                 </div>
 
                 {error && (
@@ -463,9 +455,9 @@ export default function LoginPage() {
                             </div>
                           </div>
 
-                          {/* Email & Password details */}
+                          {/* Email details */}
                           <div className="space-y-1 text-xs">
-                            <div className="flex items-center justify-between text-muted-foreground bg-muted/40 px-2 py-1 rounded-md">
+                            <div className="flex items-center justify-between text-muted-foreground bg-muted/40 px-2.5 py-1.5 rounded-md">
                               <span className="font-mono text-[11px] truncate">{account.email}</span>
                               <button
                                 type="button"
@@ -474,24 +466,6 @@ export default function LoginPage() {
                                 className="text-muted-foreground hover:text-foreground transition-colors ml-1"
                               >
                                 {copiedKey === `email-${account.email}` ? (
-                                  <Check className="h-3.5 w-3.5 text-emerald-500" />
-                                ) : (
-                                  <Copy className="h-3.5 w-3.5" />
-                                )}
-                              </button>
-                            </div>
-
-                            <div className="flex items-center justify-between text-muted-foreground bg-muted/40 px-2 py-1 rounded-md">
-                              <span className="text-[11px]">
-                                Password: <code className="font-mono font-bold text-foreground">{account.password}</code>
-                              </span>
-                              <button
-                                type="button"
-                                title="Copy Password"
-                                onClick={() => copyToClipboard(account.password, `pwd-${account.email}`)}
-                                className="text-muted-foreground hover:text-foreground transition-colors ml-1"
-                              >
-                                {copiedKey === `pwd-${account.email}` ? (
                                   <Check className="h-3.5 w-3.5 text-emerald-500" />
                                 ) : (
                                   <Copy className="h-3.5 w-3.5" />
@@ -543,14 +517,22 @@ export default function LoginPage() {
                               <Lock className="h-2.5 w-2.5" />
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span>
-                              Email: <code className="font-mono text-foreground">{account.email}</code>
-                            </span>
-                            <span>•</span>
-                            <span>
-                              Password: <code className="font-mono font-bold text-foreground">{account.password}</code>
-                            </span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-2 bg-muted/40 px-2.5 py-1 rounded-md">
+                              <span className="font-mono text-[11px] text-foreground">{account.email}</span>
+                              <button
+                                type="button"
+                                title="Copy Email"
+                                onClick={() => copyToClipboard(account.email, `email-${account.email}`)}
+                                className="text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                {copiedKey === `email-${account.email}` ? (
+                                  <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
                           </div>
                         </div>
 
@@ -600,7 +582,7 @@ export default function LoginPage() {
                           </div>
 
                           <div className="space-y-1 text-xs">
-                            <div className="flex items-center justify-between text-muted-foreground bg-muted/40 px-2 py-1 rounded-md">
+                            <div className="flex items-center justify-between text-muted-foreground bg-muted/40 px-2.5 py-1.5 rounded-md">
                               <span className="font-mono text-[11px] truncate">{account.email}</span>
                               <button
                                 type="button"
@@ -609,24 +591,6 @@ export default function LoginPage() {
                                 className="text-muted-foreground hover:text-foreground transition-colors ml-1"
                               >
                                 {copiedKey === `email-${account.email}` ? (
-                                  <Check className="h-3.5 w-3.5 text-emerald-500" />
-                                ) : (
-                                  <Copy className="h-3.5 w-3.5" />
-                                )}
-                              </button>
-                            </div>
-
-                            <div className="flex items-center justify-between text-muted-foreground bg-muted/40 px-2 py-1 rounded-md">
-                              <span className="text-[11px]">
-                                Password: <code className="font-mono font-bold text-foreground">{account.password}</code>
-                              </span>
-                              <button
-                                type="button"
-                                title="Copy Password"
-                                onClick={() => copyToClipboard(account.password, `pwd-${account.email}`)}
-                                className="text-muted-foreground hover:text-foreground transition-colors ml-1"
-                              >
-                                {copiedKey === `pwd-${account.email}` ? (
                                   <Check className="h-3.5 w-3.5 text-emerald-500" />
                                 ) : (
                                   <Copy className="h-3.5 w-3.5" />
@@ -735,20 +699,6 @@ export default function LoginPage() {
                   {demoError}
                 </div>
               )}
-
-              {/* Password Helper with 1-click Auto-Fill */}
-              <div className="flex items-center justify-between text-xs bg-muted/60 p-2.5 rounded-xl border border-border/60">
-                <span className="text-muted-foreground text-xs">
-                  Password: <code className="font-mono font-bold text-foreground">{selectedDemoUser.password}</code>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setDemoPassword(selectedDemoUser.password)}
-                  className="text-[11px] font-bold text-primary hover:underline px-2.5 py-1 bg-primary/10 rounded-md transition-colors"
-                >
-                  Auto-Fill Password
-                </button>
-              </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground flex items-center gap-1.5" htmlFor="demo-modal-password">

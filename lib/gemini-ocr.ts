@@ -14,7 +14,10 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "dummy" });
 function extractTextUsingPDFCMaps(buffer: Buffer): string {
   try {
     const binary = buffer.toString("binary");
-    const streamRegex = /(\d+)\s+0\s+obj[\s\S]*?<</Filter\s*/FlateDecode/Length\s+(\d+)>>\s*stream\r?\n/g;
+    const streamRegex = new RegExp(
+      "(\\d+)\\s+0\\s+obj[\\s\\S]*?<<\\/Filter\\s*\\/FlateDecode\\/Length\\s+(\\d+)>>\\s*stream\\r?\\n",
+      "g"
+    );
     let match: RegExpExecArray | null;
     const cmap = new Map<string, string>();
     const contentStreams: string[] = [];
@@ -43,7 +46,7 @@ function extractTextUsingPDFCMaps(buffer: Buffer): string {
 
     const lines: string[] = [];
     for (const cs of contentStreams) {
-      const tjRegex = /(?:<([0-9A-Fa-f]+)>\s*Tj|\[([\s\S]*?)\]\s*TJ)/g;
+      const tjRegex = new RegExp("(?:<([0-9A-Fa-f]+)>\\s*Tj|\\[([\\s\\S]*?)\\]\\s*TJ)", "g");
       let tj: RegExpExecArray | null;
       while ((tj = tjRegex.exec(cs)) !== null) {
         const chunk = tj[0];

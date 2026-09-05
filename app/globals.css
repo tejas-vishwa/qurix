@@ -167,11 +167,7 @@
 .cl-rootBox,
 .cl-cardBox,
 .cl-card,
-.cl-main,
-div[class*="cl-rootBox"],
-div[class*="cl-cardBox"],
-div[class*="cl-card"],
-div[class*="cl-main"] {
+.cl-main {
   width: 100% !important;
   max-width: 100% !important;
   background: transparent !important;
@@ -181,8 +177,6 @@ div[class*="cl-main"] {
   border-width: 0 !important;
   box-shadow: none !important;
   outline: none !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
 }
 
 /* Headers */
@@ -403,25 +397,14 @@ div[class*="cl-alert"] {
   color: #10b981 !important;
 }
 
-/* Development Mode Banner, Hazard Stripes & Watermarks (completely removed) */
-div[class*="cl-internal-"],
-div[class*="devModeBanner"],
-div[class*="devMode"],
-div[class*="dev-mode"],
-.cl-devModeBanner,
-.cl-footerPages,
-.cl-footerPagesLink,
-div[class*="footerPages"] {
+/* Development Mode Banner & Footer Links */
+.cl-devModeBanner {
   display: none !important;
-  height: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-  background: transparent !important;
-  background-image: none !important;
-  border: none !important;
+}
+
+.cl-footerPages,
+.cl-footerPagesLink {
+  display: none !important;
 }
 
 /* User Button Popover Menu (Navbar) */

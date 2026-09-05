@@ -671,8 +671,6 @@ export default function LoginPage() {
                         dividerText: "text-muted-foreground text-xs",
                         footer: "bg-transparent border-0 shadow-none pt-2",
                         footerActionText: "text-muted-foreground text-xs",
-                        footerPages: "hidden",
-                        devModeBanner: "hidden",
                       },
                     }}
                     routing="path"

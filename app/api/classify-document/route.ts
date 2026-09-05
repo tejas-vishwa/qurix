@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { extractTextFromPDF } from "@/lib/gemini-ocr"
-import { createWorker } from "tesseract.js"
+import Tesseract from "tesseract.js"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 30
@@ -103,10 +103,8 @@ export async function POST(req: Request) {
     // If PDF text is empty or image file, run Tesseract OCR
     if (!textContent || textContent.trim().length < 15) {
       try {
-        const worker = await createWorker("eng")
-        const ret = await worker.recognize(fileBuffer)
-        textContent = ret.data.text
-        await worker.terminate()
+        const ret = await Tesseract.recognize(fileBuffer, "eng")
+        textContent = ret?.data?.text || ""
       } catch (ocrErr) {
         console.warn("Tesseract OCR note:", ocrErr)
       }

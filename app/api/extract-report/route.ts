@@ -126,12 +126,14 @@ export async function POST(req: Request) {
       return isNaN(d.getTime()) ? new Date() : d
     }
 
-    // 1. Create Report in Turso database
+    // 1. Create Report in Turso database with pre-assigned UUID (eliminates unnecessary second update query)
+    const reportId = crypto.randomUUID()
     const report = await prisma.report.create({
       data: {
+        id: reportId,
         patientId,
         fileName: file.name,
-        fileUrl: "/placeholder.pdf",
+        fileUrl: `/api/reports/${reportId}/file`,
         fileData: base64Data,
         fileType: mimeType,
         status: "PARSED",
@@ -144,13 +146,7 @@ export async function POST(req: Request) {
       },
     })
 
-    // Set fileUrl to internal streaming endpoint
-    await prisma.report.update({
-      where: { id: report.id },
-      data: { fileUrl: `/api/reports/${report.id}/file` },
-    }).catch(() => {})
-
-    // 2. High-performance biomarker batching (avoids 100+ sequential network queries)
+    // 2. High-performance biomarker batching (avoids 100+ sequential network roundtrips to Turso)
     let hr_hemoglobin: number | null = null
     let hr_fasting_blood_sugar: number | null = null
     let hr_total_cholesterol: number | null = null
@@ -161,11 +157,79 @@ export async function POST(req: Request) {
     let hr_calcium: number | null = null
 
     if (biomarkersList.length > 0) {
-      // Pre-fetch all definitions in 1 fast query instead of 100 queries in a loop
+      // Step A: Pre-fetch all definitions in 1 fast query
       const existingDefs = await prisma.biomarkerDefinition.findMany().catch(() => [])
       const defMap = new Map<string, any>()
       existingDefs.forEach((d) => defMap.set(d.code.toUpperCase(), d))
 
+      // Step B: Bulk collect all missing definitions to create in ONE single batch
+      const missingDefsToCreate: {
+        code: string
+        displayName: string
+        unit: string
+        category: string
+        refMin: number | null
+        refMax: number | null
+      }[] = []
+
+      // Seed all 100 canonical biomarkers if not already in DB
+      for (const def of BIOMARKERS_100) {
+        const upperCode = def.code.toUpperCase()
+        if (!defMap.has(upperCode)) {
+          missingDefsToCreate.push({
+            code: upperCode,
+            displayName: def.name,
+            unit: def.unit || "",
+            category: def.category || "General",
+            refMin: def.refMin ?? null,
+            refMax: def.refMax ?? null,
+          })
+          defMap.set(upperCode, { code: upperCode, id: "", refMin: def.refMin, refMax: def.refMax })
+        }
+      }
+
+      // Check any extracted biomarker from the report not in BIOMARKERS_100
+      for (const b of biomarkersList) {
+        if (!b.testName) continue
+        const rawCode = b.testName.toUpperCase().replace(/[^A-Z0-9]/g, "_").slice(0, 50) || "BIOMARKER"
+        if (!defMap.has(rawCode)) {
+          missingDefsToCreate.push({
+            code: rawCode,
+            displayName: b.testName.slice(0, 100),
+            unit: (b.unit || "").slice(0, 30),
+            category: "Extracted",
+            refMin: null,
+            refMax: null,
+          })
+          defMap.set(rawCode, { code: rawCode, id: "", refMin: null, refMax: null })
+        }
+      }
+
+      // Step C: Bulk create all missing definitions in 1 query (or parallel fallback)
+      if (missingDefsToCreate.length > 0) {
+        try {
+          await prisma.biomarkerDefinition.createMany({
+            data: missingDefsToCreate,
+          })
+        } catch (batchErr) {
+          console.warn("createMany definition note, executing parallel upserts:", batchErr)
+          await Promise.all(
+            missingDefsToCreate.map((d) =>
+              prisma.biomarkerDefinition.upsert({
+                where: { code: d.code },
+                update: { displayName: d.displayName, unit: d.unit },
+                create: d,
+              }).catch(() => null)
+            )
+          )
+        }
+        // Refresh definition map with real database UUIDs in 1 query
+        const refreshedDefs = await prisma.biomarkerDefinition.findMany().catch(() => [])
+        defMap.clear()
+        refreshedDefs.forEach((d) => defMap.set(d.code.toUpperCase(), d))
+      }
+
+      // Step D: Map extracted metrics completely in-memory (0 database roundtrips)
       const metricsToInsert: any[] = []
 
       for (const b of biomarkersList) {
@@ -178,31 +242,11 @@ export async function POST(req: Request) {
         )
 
         const rawCode = (matchedDef ? matchedDef.code : b.testName.toUpperCase().replace(/[^A-Z0-9]/g, "_")).slice(0, 50)
-        const code = rawCode || "BIOMARKER"
-        const displayName = (matchedDef ? matchedDef.name : b.testName).slice(0, 100)
+        const code = (rawCode || "BIOMARKER").toUpperCase()
         const unit = (b.unit || (matchedDef ? matchedDef.unit : "") || "").slice(0, 30)
 
-        let biomarkerDef = defMap.get(code)
-        if (!biomarkerDef) {
-          try {
-            biomarkerDef = await prisma.biomarkerDefinition.upsert({
-              where: { code },
-              update: { displayName, unit },
-              create: {
-                code,
-                displayName,
-                unit,
-                category: matchedDef ? matchedDef.category : "Extracted",
-                refMin: matchedDef ? matchedDef.refMin : null,
-                refMax: matchedDef ? matchedDef.refMax : null,
-              },
-            })
-            defMap.set(code, biomarkerDef)
-          } catch (defErr) {
-            console.warn("Biomarker definition upsert note:", defErr)
-            continue
-          }
-        }
+        const biomarkerDef = defMap.get(code)
+        if (!biomarkerDef || !biomarkerDef.id) continue
 
         const numVal = typeof b.value === "number" ? b.value : parseFloat(b.value)
         if (isNaN(numVal)) continue
@@ -214,8 +258,8 @@ export async function POST(req: Request) {
           biomarkerId: biomarkerDef.id,
           value: numVal,
           unit,
-          refMin: biomarkerDef.refMin,
-          refMax: biomarkerDef.refMax,
+          refMin: biomarkerDef.refMin ?? null,
+          refMax: biomarkerDef.refMax ?? null,
           isAbnormal,
         })
 
@@ -229,17 +273,19 @@ export async function POST(req: Request) {
         if (code === "CALCIUM") hr_calcium = numVal
       }
 
-      // Batch insert metrics
+      // Step E: Batch insert all extracted metrics in ONE single query!
       if (metricsToInsert.length > 0) {
         try {
           await prisma.extractedMetric.createMany({
             data: metricsToInsert,
           })
         } catch (cmErr) {
-          // Fallback if createMany encounters driver limitation
-          for (const metric of metricsToInsert) {
-            await prisma.extractedMetric.create({ data: metric }).catch(() => {})
-          }
+          console.warn("createMany metrics note, executing parallel creates:", cmErr)
+          await Promise.all(
+            metricsToInsert.map((metric) =>
+              prisma.extractedMetric.create({ data: metric }).catch(() => null)
+            )
+          )
         }
       }
     }

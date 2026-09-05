@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
-import { getServerSession, authOptions } from "@/lib/auth";
+import { getServerSession, authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { UserProfileUpdateSchema, validateSchema } from "@/lib/validations"
+import { setCachedSyncedUser } from "@/lib/clerk-sync"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -10,8 +11,13 @@ export async function GET() {
   }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: session.user.id },
+          { email: session.user.email?.toLowerCase().trim() || "" },
+        ],
+      },
       select: {
         id: true,
         name: true,
@@ -54,15 +60,41 @@ export async function PUT(request: Request) {
 
     const { name, gender, age, location } = validation.data
 
-    const updatedUser = await prisma.user.update({
-      where: { id: session.user.id },
-      data: {
-        name: name !== undefined ? name : undefined,
-        gender: gender !== undefined ? gender : undefined,
-        age: age !== undefined ? age : undefined,
-        location: location !== undefined ? location : undefined,
+    let existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: session.user.id },
+          { email: session.user.email?.toLowerCase().trim() || "" },
+        ],
       },
     })
+
+    let updatedUser
+    if (existingUser) {
+      updatedUser = await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          name: name !== undefined ? name : undefined,
+          gender: gender !== undefined ? gender : undefined,
+          age: age !== undefined ? age : undefined,
+          location: location !== undefined ? location : undefined,
+        },
+      })
+    } else {
+      updatedUser = await prisma.user.create({
+        data: {
+          id: session.user.id,
+          email: session.user.email || `${session.user.id}@clerk.user`,
+          name: name || undefined,
+          gender: gender || undefined,
+          age: age || undefined,
+          location: location || undefined,
+          passwordHash: "clerk_managed_auth",
+        },
+      })
+    }
+
+    setCachedSyncedUser(session.user.id, updatedUser)
 
     return NextResponse.json({ success: true, user: updatedUser })
   } catch (error) {

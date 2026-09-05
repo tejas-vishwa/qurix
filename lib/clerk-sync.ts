@@ -19,6 +19,10 @@ export function getCachedSyncedUser(clerkId: string) {
   return null
 }
 
+export function setCachedSyncedUser(clerkId: string, user: any) {
+  userSyncCache.set(clerkId, { user, expiresAt: Date.now() + SYNC_CACHE_TTL_MS })
+}
+
 /**
  * Synchronizes an authenticated Clerk user with the Prisma database.
  * Ensures health records, appointments, and prescriptions link to the user record.

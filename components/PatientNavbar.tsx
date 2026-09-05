@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signOut as nextAuthSignOut } from "next-auth/react"
-import { useClerk, UserButton } from "@clerk/nextjs"
+import { useClerk, useUser, UserButton } from "@clerk/nextjs"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LayoutDashboard, LineChart, LogOut, UploadCloud, Calendar, Menu, X, ChevronRight, User, Pill, Activity } from "lucide-react"
@@ -19,6 +19,73 @@ export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
   const { signOut: clerkSignOut } = useClerk()
+  const { user: clerkUser } = useUser()
+
+  const [displayName, setDisplayName] = useState<string>(() => {
+    if (userName && !userName.startsWith("user_")) return userName
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("qurix_user_name")
+      if (stored && !stored.startsWith("user_")) return stored
+    }
+    return ""
+  })
+
+  useEffect(() => {
+    // 1. If server prop gives a human name
+    if (userName && !userName.startsWith("user_")) {
+      setDisplayName(userName)
+      if (typeof window !== "undefined") {
+        localStorage.setItem("qurix_user_name", userName)
+      }
+      return
+    }
+
+    // 2. Check localStorage
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("qurix_user_name")
+      if (stored && !stored.startsWith("user_")) {
+        setDisplayName(stored)
+        return
+      }
+    }
+
+    // 3. Check Clerk user
+    if (clerkUser) {
+      const cName = clerkUser.fullName || clerkUser.firstName || clerkUser.username
+      if (cName && !cName.startsWith("user_")) {
+        setDisplayName(cName)
+        if (typeof window !== "undefined") {
+          localStorage.setItem("qurix_user_name", cName)
+        }
+        return
+      }
+    }
+
+    // 4. Fetch latest profile from DB
+    fetch("/api/user/profile")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.name && !data.name.startsWith("user_")) {
+          setDisplayName(data.name)
+          if (typeof window !== "undefined") {
+            localStorage.setItem("qurix_user_name", data.name)
+          }
+        }
+      })
+      .catch(() => {})
+  }, [userName, clerkUser])
+
+  // Listen for immediate profile updates from the Profile page
+  useEffect(() => {
+    const handleProfileUpdate = (e: any) => {
+      const newName = e.detail?.name || (typeof window !== "undefined" ? localStorage.getItem("qurix_user_name") : null)
+      if (newName && !newName.startsWith("user_")) {
+        setDisplayName(newName)
+      }
+    }
+    window.addEventListener("qurix:profile-updated", handleProfileUpdate)
+    return () => window.removeEventListener("qurix:profile-updated", handleProfileUpdate)
+  }, [])
 
   const handleSignOut = async () => {
     try {
@@ -69,16 +136,14 @@ export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps
         {/* Desktop Right Controls */}
         <div className="hidden md:flex items-center space-x-4">
           <ThemeToggle />
-          {userName && (
-            <div className="flex items-center space-x-2 px-3 py-1.5 bg-primary/5 rounded-full border border-primary/10">
-              <span className="text-sm font-medium">Hello, {userName}</span>
-              {subscriptionTier === "QURIX_PLUS" && (
-                <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-0.5 rounded-full shadow-sm">
-                  <Sparkles className="h-3 w-3" /> Plus
-                </span>
-              )}
-            </div>
-          )}
+          <div className="flex items-center space-x-2 px-3 py-1.5 bg-primary/5 rounded-full border border-primary/10">
+            <span className="text-sm font-medium">Hello, {displayName || "Patient"}</span>
+            {subscriptionTier === "QURIX_PLUS" && (
+              <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-0.5 rounded-full shadow-sm">
+                <Sparkles className="h-3 w-3" /> Plus
+              </span>
+            )}
+          </div>
           <UserButton afterSignOutUrl="/login" />
           <button
             onClick={handleSignOut}
@@ -127,24 +192,22 @@ export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps
             </div>
 
             {/* Header User Badge */}
-            {userName && (
-              <div className="flex items-center space-x-3.5 p-4 rounded-2xl bg-card border border-border/80 shadow-sm">
-                <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold">
-                  <User className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-primary uppercase font-bold tracking-wider">Signed in as</p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-lg font-extrabold text-foreground">{userName}</p>
-                    {subscriptionTier === "QURIX_PLUS" && (
-                      <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-0.5 rounded-full shadow-sm">
-                        <Sparkles className="h-3 w-3" /> Plus
-                      </span>
-                    )}
-                  </div>
+            <div className="flex items-center space-x-3.5 p-4 rounded-2xl bg-card border border-border/80 shadow-sm">
+              <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold">
+                <User className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs text-primary uppercase font-bold tracking-wider">Signed in as</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-lg font-extrabold text-foreground">{displayName || "Patient"}</p>
+                  {subscriptionTier === "QURIX_PLUS" && (
+                    <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-0.5 rounded-full shadow-sm">
+                      <Sparkles className="h-3 w-3" /> Plus
+                    </span>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Navigation Cards */}
             <nav className="flex flex-col space-y-3">

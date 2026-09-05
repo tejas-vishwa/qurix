@@ -59,6 +59,10 @@ export default function ProfilePage() {
       const data = await res.json();
       if (res.ok) {
         setMessage("Profile updated successfully!");
+        if (formData.name) {
+          localStorage.setItem("qurix_user_name", formData.name);
+          window.dispatchEvent(new CustomEvent("qurix:profile-updated", { detail: { name: formData.name } }));
+        }
       } else {
         setMessage(data.error || "Failed to update profile");
       }

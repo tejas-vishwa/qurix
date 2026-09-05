@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
+import { useUser } from "@clerk/nextjs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +13,7 @@ import { Loader2, User as UserIcon } from "lucide-react"
 
 export default function ProfilePage() {
   const { data: session } = useSession()
+  const { user: clerkUser } = useUser()
   const { toast } = useToast()
   
   const [isLoading, setIsLoading] = useState(true)
@@ -29,12 +31,19 @@ export default function ProfilePage() {
         const res = await fetch("/api/user/profile")
         if (res.ok) {
           const data = await res.json()
+          const resolvedName = (data.name && !data.name.startsWith("user_"))
+            ? data.name
+            : (clerkUser?.fullName || clerkUser?.firstName || "")
+
           setFormData({
-            name: data.name || "",
+            name: resolvedName,
             gender: data.gender || "",
             age: data.age?.toString() || "",
             location: data.location || "",
           })
+          if (resolvedName) {
+            localStorage.setItem("qurix_user_name", resolvedName)
+          }
         }
       } catch (error) {
         console.error("Failed to load profile:", error)
@@ -43,10 +52,8 @@ export default function ProfilePage() {
       }
     }
     
-    if (session) {
-      fetchProfile()
-    }
-  }, [session])
+    fetchProfile()
+  }, [clerkUser])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -72,6 +79,10 @@ export default function ProfilePage() {
           title: "Profile updated",
           description: "Your personal information has been saved successfully.",
         })
+        if (formData.name) {
+          localStorage.setItem("qurix_user_name", formData.name)
+          window.dispatchEvent(new CustomEvent("qurix:profile-updated", { detail: { name: formData.name } }))
+        }
       } else {
         throw new Error("Failed to update")
       }

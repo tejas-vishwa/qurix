@@ -7,7 +7,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import EmailProvider from "next-auth/providers/email"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { auth as clerkAuthFn, currentUser as clerkCurrentUser } from "@clerk/nextjs/server"
-import { syncClerkUserWithPrisma, getCachedSyncedUser } from "@/lib/clerk-sync"
+import { syncClerkUserWithPrisma, getCachedSyncedUser, setCachedSyncedUser } from "@/lib/clerk-sync"
 import { compare } from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { checkAuthLimit, recordAuthFailure, recordAuthSuccess, getClientIp } from "@/lib/rate-limit"
@@ -237,7 +237,7 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
       if (clerkId) {
         // 1. Fastest path: in-memory cache hit (same serverless instance)
         const cachedUser = getCachedSyncedUser(clerkId)
-        if (cachedUser) {
+        if (cachedUser && cachedUser.name && !cachedUser.name.startsWith("user_")) {
           return {
             user: {
               id: cachedUser.id,
@@ -250,13 +250,12 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
           }
         }
 
-        // 2. Fast path: build session from JWT claims — NO external HTTP call, NO DB hit
         const claims = (authObj?.sessionClaims as any) || {}
         const primaryEmail =
           claims.email ||
           claims.primary_email ||
           `${clerkId}@clerk.user`
-        const rawName = claims.name || claims.full_name || primaryEmail.split("@")[0]
+        let rawName = claims.name || claims.full_name || claims.firstName || ""
         const rawRole = (
           claims.role ||
           claims.public_metadata?.role ||
@@ -269,23 +268,52 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
             ? rawRole
             : "PATIENT"
 
-        // 3. Sync to DB in background — don't block the page render
-        syncClerkUserWithPrisma({
-          clerkId,
-          email: primaryEmail,
-          name: rawName,
-          role: validRole,
-        }).catch(() => {})
+        // Look up user in Prisma to get the name they saved in Profile
+        let dbUser = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { id: clerkId },
+              { email: primaryEmail.toLowerCase().trim() },
+            ],
+          },
+          select: { id: true, name: true, email: true, role: true, subscriptionTier: true, paymentStatus: true }
+        }).catch(() => null)
 
-        // Return immediately from JWT claims — zero DB wait
-        return {
-          user: {
-            id: clerkId,
+        if (dbUser) {
+          if (dbUser.name && !dbUser.name.startsWith("user_")) {
+            rawName = dbUser.name
+          }
+          setCachedSyncedUser(clerkId, {
+            ...dbUser,
+            name: rawName || dbUser.name,
+          })
+        } else {
+          // Sync to DB in background
+          syncClerkUserWithPrisma({
+            clerkId,
             email: primaryEmail,
             name: rawName,
             role: validRole,
-            subscriptionTier: "FREE",
-            paymentStatus: "NONE",
+          }).catch(() => {})
+        }
+
+        // Clean fallback: never show raw user_3luv... ID to the user!
+        if (!rawName || rawName.startsWith("user_")) {
+          if (primaryEmail && !primaryEmail.includes("@clerk.user")) {
+            rawName = primaryEmail.split("@")[0]
+          } else {
+            rawName = "Patient"
+          }
+        }
+
+        return {
+          user: {
+            id: dbUser?.id || clerkId,
+            email: dbUser?.email || primaryEmail,
+            name: rawName,
+            role: (dbUser?.role as string) || validRole,
+            subscriptionTier: dbUser?.subscriptionTier || "FREE",
+            paymentStatus: dbUser?.paymentStatus || "NONE",
           },
         }
       }

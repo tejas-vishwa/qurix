@@ -26,12 +26,15 @@ const NON_MEDICINE_WORDS = new Set([
  */
 export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
-    const pdfData = await extractText(new Uint8Array(buffer))
+    const pdfData = await extractText(new Uint8Array(buffer), { mergePages: true })
     if (typeof pdfData === "string") {
       return pdfData
-    } else if (pdfData && typeof pdfData === "object" && "text" in pdfData) {
-      const textObj = (pdfData as any).text
-      return Array.isArray(textObj) ? textObj.join("\n") : textObj || ""
+    }
+    if (typeof (pdfData as any)?.text === "string") {
+      return (pdfData as any).text
+    }
+    if (Array.isArray((pdfData as any)?.text)) {
+      return (pdfData as any).text.join("\n")
     }
   } catch (err) {
     console.warn("PDF extraction error:", err)
@@ -163,7 +166,7 @@ async function fallbackLabReportExtraction(
     extractedText = await extractTextFromPDF(buffer)
   }
 
-  if (!extractedText.trim()) {
+  if (!extractedText.trim() && mimeType.startsWith("image/")) {
     try {
       const ret = await Tesseract.recognize(buffer, "eng")
       extractedText = ret.data.text || ""

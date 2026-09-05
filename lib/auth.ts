@@ -3,6 +3,7 @@ import { getServerSession as getNextAuthSession } from "next-auth/next"
 import CredentialsProvider from "next-auth/providers/credentials"
 import EmailProvider from "next-auth/providers/email"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
+import { auth as clerkAuth, currentUser as clerkCurrentUser } from "@clerk/nextjs/server"
 import { syncClerkUserWithPrisma, getCachedSyncedUser } from "@/lib/clerk-sync"
 import { compare } from "bcryptjs"
 import { prisma } from "@/lib/prisma"
@@ -233,8 +234,7 @@ export async function getAuthSession(_options?: any): Promise<AppUserSession | n
 
   if (hasClerkKeys) {
     try {
-      const { auth, currentUser } = await import("@clerk/nextjs/server")
-      const authObj = await auth()
+      const authObj = await clerkAuth()
       const clerkId = authObj?.userId
 
       if (clerkId) {
@@ -261,7 +261,7 @@ export async function getAuthSession(_options?: any): Promise<AppUserSession | n
         // Only make external HTTP request to Clerk if claims do not have the email
         if (!primaryEmail) {
           try {
-            const clerkUser = await currentUser()
+            const clerkUser = await clerkCurrentUser()
             if (clerkUser) {
               primaryEmail =
                 clerkUser.emailAddresses?.find(

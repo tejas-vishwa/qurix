@@ -9,7 +9,7 @@ export interface SyncUserParams {
 
 // In-memory cache to prevent repetitive round-trips to remote DB on every page navigation
 const userSyncCache = new Map<string, { user: any; expiresAt: number }>()
-const SYNC_CACHE_TTL_MS = 2 * 60 * 1000 // 2 minutes
+const SYNC_CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes
 
 export function getCachedSyncedUser(clerkId: string) {
   const hit = userSyncCache.get(clerkId)
@@ -51,14 +51,13 @@ export async function syncClerkUserWithPrisma({
     })
 
     if (user) {
-      // Update existing user with name/verified status if missing
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          email: normalizedEmail,
-          name: name || user.name,
-        },
-      }).catch(() => user)
+      // Only write to DB if name is missing — avoids a pointless UPDATE on every page load
+      if (!user.name && name) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { name },
+        }).catch(() => user)
+      }
       userSyncCache.set(clerkId, { user, expiresAt: Date.now() + SYNC_CACHE_TTL_MS })
       return user
     }

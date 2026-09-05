@@ -3,9 +3,15 @@ import { PrismaLibSQL } from '@prisma/adapter-libsql'
 import { createClient } from '@libsql/client/web'
 
 function getValidTursoUrl(): string {
-  const raw = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || process.env.TURSO_URL
-  if (raw && raw !== 'undefined' && raw.trim() !== '') {
-    return raw.trim()
+  const candidates = [
+    process.env.TURSO_DATABASE_URL,
+    process.env.TURSO_URL,
+    process.env.DATABASE_URL
+  ]
+  for (const raw of candidates) {
+    if (raw && raw !== 'undefined' && raw.trim() !== '' && !raw.includes('placeholder.turso.io')) {
+      return raw.trim()
+    }
   }
   return 'file:./dev.db'
 }

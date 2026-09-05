@@ -1,7 +1,4 @@
 {
   "framework": "nextjs",
-  "buildCommand": "npx prisma generate && next build",
-  "env": {
-    "DATABASE_URL": "libsql://placeholder.turso.io"
-  }
+  "buildCommand": "npx prisma generate && next build"
 }

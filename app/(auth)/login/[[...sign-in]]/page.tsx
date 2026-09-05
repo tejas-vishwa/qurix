@@ -6,6 +6,7 @@ import { SignIn, ClerkLoading, ClerkLoaded, useAuth, useUser } from "@clerk/next
 import { QurixLogo } from "@/components/QurixLogo"
 import { BackButton } from "@/components/BackButton"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   User,
   Stethoscope,
@@ -126,6 +127,14 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
+  // Demo Password Lock Modal state
+  const [selectedDemoUser, setSelectedDemoUser] = useState<DemoAccount | null>(null)
+  const [isDemoDialogOpen, setIsDemoDialogOpen] = useState(false)
+  const [demoPassword, setDemoPassword] = useState("")
+  const [demoError, setDemoError] = useState("")
+  const [showDemoPassword, setShowDemoPassword] = useState(false)
+  const [verifyingDemo, setVerifyingDemo] = useState(false)
+
   // Redirect after Clerk sign in
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !user) return
@@ -150,28 +159,47 @@ export default function LoginPage() {
     setTimeout(() => setCopiedKey(null), 2000)
   }
 
-  // 1-Click Demo Login
-  const handleDirectDemoSignIn = async (account: DemoAccount) => {
-    setSigningInEmail(account.email)
+  // Open the Password Lock Modal
+  const openDemoModal = (account: DemoAccount) => {
+    setSelectedDemoUser(account)
+    setDemoPassword(account.password)
+    setDemoError("")
+    setShowDemoPassword(false)
+    setIsDemoDialogOpen(true)
     setEmail(account.email)
     setPassword(account.password)
-    setError("")
+  }
+
+  // Submit password in the Demo Lock Modal
+  const handleDemoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedDemoUser) return
+
+    if (!demoPassword.trim()) {
+      setDemoError("Please enter the account password.")
+      return
+    }
+
+    setVerifyingDemo(true)
+    setDemoError("")
+
     try {
       const res = await signIn("credentials", {
-        email: account.email.trim().toLowerCase(),
-        password: account.password,
+        email: selectedDemoUser.email.trim().toLowerCase(),
+        password: demoPassword,
         redirect: false,
       })
 
       if (res?.error) {
-        setError(res.error === "CredentialsSignin" ? "Invalid email or password" : res.error)
-        setSigningInEmail(null)
+        setDemoError("Incorrect password. Please enter the valid account password.")
+        setVerifyingDemo(false)
       } else {
-        window.location.href = account.targetUrl
+        setIsDemoDialogOpen(false)
+        window.location.href = selectedDemoUser.targetUrl
       }
     } catch (err: any) {
-      setError(err?.message || "Sign in failed")
-      setSigningInEmail(null)
+      setDemoError(err?.message || "Sign in failed")
+      setVerifyingDemo(false)
     }
   }
 
@@ -322,8 +350,8 @@ export default function LoginPage() {
                       </p>
                     </div>
                   </div>
-                  <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                    <Sparkles className="h-3 w-3" /> 1-Click Ready
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-1 rounded-full border border-amber-500/20">
+                    <Lock className="h-3 w-3" /> Password Protected
                   </span>
                 </div>
               </div>
@@ -393,7 +421,8 @@ export default function LoginPage() {
                     </>
                   ) : (
                     <>
-                      <span>Sign In with Selected Credentials</span>
+                      <Lock className="h-4 w-4" />
+                      <span>Unlock & Sign In with Selected Credentials</span>
                       <ArrowRight className="h-4 w-4" />
                     </>
                   )}
@@ -408,24 +437,30 @@ export default function LoginPage() {
                     <span className="flex items-center gap-1.5 text-foreground">
                       <User className="h-3.5 w-3.5 text-emerald-500" /> Patient Profiles
                     </span>
-                    <span className="text-[11px] text-muted-foreground font-normal">
-                      Password: <code className="font-mono font-bold text-foreground bg-muted px-1.5 py-0.5 rounded">demo1234</code>
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                      <Lock className="h-3 w-3" /> Password Protected
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {DEMO_ACCOUNTS.filter((a) => a.category === "patient").map((account) => {
-                      const isSigning = signingInEmail === account.email
                       return (
                         <div
                           key={account.email}
-                          className="p-3 rounded-xl border border-border/70 bg-card hover:bg-accent/40 hover:border-primary/40 transition-all flex flex-col justify-between space-y-2"
+                          className="p-3 rounded-xl border border-border/70 bg-card hover:bg-accent/40 hover:border-amber-500/40 transition-all flex flex-col justify-between space-y-2"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-sm text-foreground">{account.name}</span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${account.badgeColor}`}>
-                              {account.roleLabel}
+                            <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                              {account.name}
                             </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${account.badgeColor}`}>
+                                {account.roleLabel}
+                              </span>
+                              <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                <Lock className="h-2.5 w-2.5" />
+                              </span>
+                            </div>
                           </div>
 
                           {/* Email & Password details */}
@@ -467,20 +502,13 @@ export default function LoginPage() {
 
                           <button
                             type="button"
-                            onClick={() => handleDirectDemoSignIn(account)}
-                            disabled={loading || !!signingInEmail}
-                            className="w-full py-1.5 px-2.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                            onClick={() => openDemoModal(account)}
+                            disabled={loading || verifyingDemo}
+                            className="w-full py-2 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 border border-amber-500/20 active:scale-[0.98]"
                           >
-                            {isSigning ? (
-                              <>
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Signing in...
-                              </>
-                            ) : (
-                              <>
-                                <span>1-Click Sign In</span>
-                                <ArrowRight className="h-3 w-3" />
-                              </>
-                            )}
+                            <Lock className="h-3.5 w-3.5" />
+                            <span>Unlock & Sign In</span>
+                            <ArrowRight className="h-3 w-3 ml-auto opacity-60" />
                           </button>
                         </div>
                       )
@@ -494,23 +522,25 @@ export default function LoginPage() {
                     <span className="flex items-center gap-1.5 text-foreground">
                       <Stethoscope className="h-3.5 w-3.5 text-teal-500" /> Clinician Profile
                     </span>
-                    <span className="text-[11px] text-muted-foreground font-normal">
-                      Password: <code className="font-mono font-bold text-foreground bg-muted px-1.5 py-0.5 rounded">demo1234</code>
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                      <Lock className="h-3 w-3" /> Password Protected
                     </span>
                   </div>
 
                   {DEMO_ACCOUNTS.filter((a) => a.category === "doctor").map((account) => {
-                    const isSigning = signingInEmail === account.email
                     return (
                       <div
                         key={account.email}
-                        className="p-3 rounded-xl border border-border/70 bg-card hover:bg-accent/40 hover:border-teal-500/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        className="p-3 rounded-xl border border-border/70 bg-card hover:bg-accent/40 hover:border-amber-500/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-sm text-foreground">{account.name}</span>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${account.badgeColor}`}>
                               {account.roleLabel}
+                            </span>
+                            <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              <Lock className="h-2.5 w-2.5" />
                             </span>
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -526,20 +556,13 @@ export default function LoginPage() {
 
                         <button
                           type="button"
-                          onClick={() => handleDirectDemoSignIn(account)}
-                          disabled={loading || !!signingInEmail}
-                          className="py-2 px-4 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 shrink-0 active:scale-[0.98]"
+                          onClick={() => openDemoModal(account)}
+                          disabled={loading || verifyingDemo}
+                          className="py-2 px-4 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 border border-amber-500/20 shrink-0 active:scale-[0.98]"
                         >
-                          {isSigning ? (
-                            <>
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Opening Doctor Portal...
-                            </>
-                          ) : (
-                            <>
-                              <span>Sign In as Doctor</span>
-                              <ArrowRight className="h-3.5 w-3.5" />
-                            </>
-                          )}
+                          <Lock className="h-3.5 w-3.5" />
+                          <span>Unlock Doctor Portal</span>
+                          <ArrowRight className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     )
@@ -552,21 +575,28 @@ export default function LoginPage() {
                     <span className="flex items-center gap-1.5 text-foreground">
                       <ShieldCheck className="h-3.5 w-3.5 text-rose-500" /> Administrator Profiles
                     </span>
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                      <Lock className="h-3 w-3" /> Password Protected
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {DEMO_ACCOUNTS.filter((a) => a.category === "admin").map((account) => {
-                      const isSigning = signingInEmail === account.email
                       return (
                         <div
                           key={account.email}
-                          className="p-3 rounded-xl border border-border/70 bg-card hover:bg-accent/40 hover:border-rose-500/40 transition-all flex flex-col justify-between space-y-2"
+                          className="p-3 rounded-xl border border-border/70 bg-card hover:bg-accent/40 hover:border-amber-500/40 transition-all flex flex-col justify-between space-y-2"
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-sm text-foreground">{account.name}</span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${account.badgeColor}`}>
-                              {account.roleLabel}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${account.badgeColor}`}>
+                                {account.roleLabel}
+                              </span>
+                              <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                <Lock className="h-2.5 w-2.5" />
+                              </span>
+                            </div>
                           </div>
 
                           <div className="space-y-1 text-xs">
@@ -607,20 +637,13 @@ export default function LoginPage() {
 
                           <button
                             type="button"
-                            onClick={() => handleDirectDemoSignIn(account)}
-                            disabled={loading || !!signingInEmail}
-                            className="w-full py-1.5 px-2.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                            onClick={() => openDemoModal(account)}
+                            disabled={loading || verifyingDemo}
+                            className="w-full py-2 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 border border-amber-500/20 active:scale-[0.98]"
                           >
-                            {isSigning ? (
-                              <>
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Opening Admin...
-                              </>
-                            ) : (
-                              <>
-                                <span>Sign In as Admin</span>
-                                <ArrowRight className="h-3 w-3" />
-                              </>
-                            )}
+                            <Lock className="h-3.5 w-3.5" />
+                            <span>Unlock & Sign In</span>
+                            <ArrowRight className="h-3 w-3 ml-auto opacity-60" />
                           </button>
                         </div>
                       )
@@ -682,6 +705,110 @@ export default function LoginPage() {
           )}
         </div>
       </main>
+
+      {/* Password Protection Dialog for Demo Accounts */}
+      <Dialog open={isDemoDialogOpen} onOpenChange={setIsDemoDialogOpen}>
+        <DialogContent className="sm:max-w-md p-6 bg-card border border-border/80 rounded-2xl shadow-2xl">
+          {selectedDemoUser && (
+            <form onSubmit={handleDemoSubmit} className="space-y-4">
+              <DialogHeader className="text-left space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
+                    <Lock className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-lg font-bold text-foreground">
+                      Demo Account Verification
+                    </DialogTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Enter the account password to unlock
+                    </p>
+                  </div>
+                </div>
+                <DialogDescription className="text-xs text-muted-foreground pt-1">
+                  You are unlocking <strong className="text-foreground font-semibold">{selectedDemoUser.name}</strong> ({selectedDemoUser.email}).
+                </DialogDescription>
+              </DialogHeader>
+
+              {demoError && (
+                <div className="text-xs text-destructive font-medium rounded-lg bg-destructive/10 border border-destructive/20 p-3">
+                  {demoError}
+                </div>
+              )}
+
+              {/* Password Helper with 1-click Auto-Fill */}
+              <div className="flex items-center justify-between text-xs bg-muted/60 p-2.5 rounded-xl border border-border/60">
+                <span className="text-muted-foreground text-xs">
+                  Password: <code className="font-mono font-bold text-foreground">{selectedDemoUser.password}</code>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDemoPassword(selectedDemoUser.password)}
+                  className="text-[11px] font-bold text-primary hover:underline px-2.5 py-1 bg-primary/10 rounded-md transition-colors"
+                >
+                  Auto-Fill Password
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1.5" htmlFor="demo-modal-password">
+                  <KeyRound className="h-3.5 w-3.5 text-primary" /> Account Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="demo-modal-password"
+                    type={showDemoPassword ? "text" : "password"}
+                    placeholder="Enter password"
+                    value={demoPassword}
+                    onChange={(e) => {
+                      setDemoPassword(e.target.value)
+                      if (demoError) setDemoError("")
+                    }}
+                    autoFocus
+                    required
+                    className="w-full px-3.5 py-2.5 pr-10 text-sm rounded-xl border border-input bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDemoPassword(!showDemoPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showDemoPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-2 pt-3 border-t border-border/60 -mx-6 -mb-6 p-4 bg-muted/30 rounded-b-2xl">
+                <button
+                  type="button"
+                  onClick={() => setIsDemoDialogOpen(false)}
+                  disabled={verifyingDemo}
+                  className="py-2 px-4 rounded-xl border border-input bg-background hover:bg-accent text-foreground text-xs font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={verifyingDemo || !demoPassword}
+                  className="py-2 px-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {verifyingDemo ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-3.5 w-3.5" />
+                      <span>Unlock & Sign In</span>
+                    </>
+                  )}
+                </button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -157,3 +157,299 @@
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   CLERK COMPONENT THEME INTEGRATION
+   Ensures Clerk components (<SignIn />, <SignUp />, <UserButton />) seamlessly 
+   inherit the active theme (Dark Mode by default / Light Mode)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* Containers & Cards */
+.cl-rootBox {
+  width: 100% !important;
+}
+
+.cl-cardBox,
+div[class*="cl-cardBox"] {
+  width: 100% !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.cl-card,
+div[class*="cl-card"] {
+  width: 100% !important;
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 1.5rem !important;
+  box-shadow: none !important;
+}
+
+/* When Clerk is nested inside an existing card container (e.g. login page) */
+.bg-card .cl-card,
+[class*="bg-card"] .cl-card {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* Headers */
+.cl-headerTitle,
+h1[class*="cl-headerTitle"] {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 700 !important;
+}
+
+.cl-headerSubtitle,
+p[class*="cl-headerSubtitle"] {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.cl-headerBackLink,
+.cl-headerBackIcon {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.cl-headerBackLink:hover,
+.cl-headerBackIcon:hover {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Form Labels & Fields */
+.cl-formFieldLabel,
+label[class*="cl-formFieldLabel"] {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 500 !important;
+  font-size: 0.875rem !important;
+}
+
+.cl-formFieldInput,
+input[class*="cl-formFieldInput"] {
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--input)) !important;
+  border-radius: 0.75rem !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.cl-formFieldInput::placeholder,
+input[class*="cl-formFieldInput"]::placeholder {
+  color: hsl(var(--muted-foreground) / 0.7) !important;
+}
+
+.cl-formFieldInput:focus,
+input[class*="cl-formFieldInput"]:focus {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.25) !important;
+  outline: none !important;
+}
+
+.cl-formFieldInputShowPasswordButton {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.cl-formFieldInputShowPasswordButton:hover {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Primary Action Buttons */
+.cl-formButtonPrimary,
+button[class*="cl-formButtonPrimary"] {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  border-radius: 0.75rem !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25) !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.cl-formButtonPrimary:hover,
+button[class*="cl-formButtonPrimary"]:hover {
+  background-color: #047857 !important;
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.35) !important;
+}
+
+.cl-formButtonReset {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.cl-formButtonReset:hover {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Social Login Buttons */
+.cl-socialButtonsBlockButton,
+button[class*="cl-socialButtonsBlockButton"] {
+  background-color: hsl(var(--muted) / 0.4) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.75rem !important;
+  color: hsl(var(--foreground)) !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.cl-socialButtonsBlockButton:hover,
+button[class*="cl-socialButtonsBlockButton"]:hover {
+  background-color: hsl(var(--muted) / 0.7) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.cl-socialButtonsBlockButtonText,
+span[class*="cl-socialButtonsBlockButtonText"] {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 500 !important;
+}
+
+.cl-socialButtonsProviderIcon {
+  filter: none !important;
+}
+
+/* Dividers */
+.cl-dividerRow {
+  margin: 1.25rem 0 !important;
+}
+
+.cl-dividerLine,
+div[class*="cl-dividerLine"] {
+  background-color: hsl(var(--border) / 0.8) !important;
+}
+
+.cl-dividerText,
+span[class*="cl-dividerText"] {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 0.75rem !important;
+}
+
+/* Footer & Links */
+.cl-footer,
+footer[class*="cl-footer"] {
+  background: transparent !important;
+  border-top: 1px solid hsl(var(--border) / 0.5) !important;
+}
+
+.cl-footerActionText,
+span[class*="cl-footerActionText"] {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.cl-footerActionLink,
+a[class*="cl-footerActionLink"] {
+  color: #10b981 !important;
+  font-weight: 600 !important;
+}
+
+.cl-footerActionLink:hover,
+a[class*="cl-footerActionLink"]:hover {
+  color: #34d399 !important;
+  text-decoration: underline !important;
+}
+
+/* Verification Code / OTP Inputs */
+.cl-otpCodeFieldInput,
+input[class*="cl-otpCodeFieldInput"] {
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--input)) !important;
+  border-radius: 0.5rem !important;
+}
+.cl-otpCodeFieldInput:focus {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.25) !important;
+}
+
+/* Identity preview (e.g. "Signing in as user@example.com") */
+.cl-identityPreview,
+div[class*="cl-identityPreview"] {
+  background-color: hsl(var(--muted) / 0.3) !important;
+  border: 1px solid hsl(var(--border) / 0.6) !important;
+  border-radius: 0.75rem !important;
+}
+
+.cl-identityPreviewText,
+span[class*="cl-identityPreviewText"] {
+  color: hsl(var(--foreground)) !important;
+}
+
+.cl-identityPreviewEditButton,
+button[class*="cl-identityPreviewEditButton"] {
+  color: #10b981 !important;
+}
+
+/* Alerts and feedback */
+.cl-alert,
+div[class*="cl-alert"] {
+  background-color: hsl(var(--destructive) / 0.1) !important;
+  border: 1px solid hsl(var(--destructive) / 0.25) !important;
+  border-radius: 0.75rem !important;
+  color: hsl(var(--destructive)) !important;
+}
+
+.cl-alertText {
+  color: hsl(var(--destructive)) !important;
+}
+
+.cl-formFieldErrorText {
+  color: hsl(var(--destructive)) !important;
+}
+
+.cl-formFieldSuccessText {
+  color: #10b981 !important;
+}
+
+/* Development Mode Banner & Clerk Branding in Dev Mode */
+div[class*="cl-internal-"],
+div[class*="devModeBanner"],
+div[class*="devMode"],
+div[class*="dev-mode"],
+.cl-devModeBanner {
+  background-color: hsl(var(--muted) / 0.25) !important;
+  border-top: 1px solid hsl(var(--border) / 0.4) !important;
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+div[class*="devModeBanner"] p,
+div[class*="devModeBanner"] span,
+div[class*="devModeBanner"] a,
+div[class*="devMode"] p,
+div[class*="devMode"] span,
+div[class*="cl-internal-"] p,
+div[class*="cl-internal-"] span {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.cl-footerPages,
+.cl-footerPagesLink {
+  display: none !important;
+}
+
+/* User Button Popover Menu (Navbar) */
+.cl-userButtonPopoverCard,
+div[class*="cl-userButtonPopoverCard"] {
+  background-color: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-radius: 1rem !important;
+}
+
+.cl-userButtonPopoverActionButton,
+button[class*="cl-userButtonPopoverActionButton"] {
+  color: hsl(var(--foreground)) !important;
+}
+
+.cl-userButtonPopoverActionButton:hover,
+button[class*="cl-userButtonPopoverActionButton"]:hover {
+  background-color: hsl(var(--muted) / 0.5) !important;
+}
+
+.cl-userButtonPopoverActionButtonText {
+  color: hsl(var(--foreground)) !important;
+}
+
+.cl-userButtonPopoverActionButtonIcon {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.cl-userButtonPopoverFooter,
+div[class*="cl-userButtonPopoverFooter"] {
+  background-color: transparent !important;
+  border-top: 1px solid hsl(var(--border) / 0.5) !important;
+}

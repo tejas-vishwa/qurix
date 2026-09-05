@@ -1,10 +1,74 @@
 import { GoogleGenAI } from "@google/genai";
 import Tesseract from "tesseract.js"
 import { extractText, extractImages, getDocumentProxy } from "unpdf"
+import zlib from "zlib"
 import { BIOMARKERS_100 } from "./biomarkers100"
 import type { ExtractedMedicalData, ExtractedMedication } from "@/types/medical-ocr"
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "dummy" });
+
+/**
+ * Robust native CMap extractor for PDFs with embedded font subset CMaps (like jsPDF/pdfmake).
+ * Decodes character codes directly from PDF text streams without external dependencies.
+ */
+function extractTextUsingPDFCMaps(buffer: Buffer): string {
+  try {
+    const binary = buffer.toString("binary");
+    const streamRegex = /(\d+)\s+0\s+obj[\s\S]*?<</Filter\s*/FlateDecode/Length\s+(\d+)>>\s*stream\r?\n/g;
+    let match: RegExpExecArray | null;
+    const cmap = new Map<string, string>();
+    const contentStreams: string[] = [];
+
+    while ((match = streamRegex.exec(binary)) !== null) {
+      const len = parseInt(match[2], 10);
+      const start = match.index + match[0].length;
+      const slice = buffer.subarray(start, start + len);
+      try {
+        const decompressed = zlib.inflateSync(slice).toString("utf-8");
+        if (decompressed.includes("begincmap")) {
+          const bfRegex = /<([0-9A-Fa-f]{4})>\s*<([0-9A-Fa-f]{4})>/g;
+          let bf: RegExpExecArray | null;
+          while ((bf = bfRegex.exec(decompressed)) !== null) {
+            const src = bf[1].toUpperCase();
+            const charCode = parseInt(bf[2], 16);
+            cmap.set(src, String.fromCharCode(charCode));
+          }
+        } else if (decompressed.includes("Tj") || decompressed.includes("TJ")) {
+          contentStreams.push(decompressed);
+        }
+      } catch {}
+    }
+
+    if (cmap.size === 0 || contentStreams.length === 0) return "";
+
+    const lines: string[] = [];
+    for (const cs of contentStreams) {
+      const tjRegex = /(?:<([0-9A-Fa-f]+)>\s*Tj|\[([\s\S]*?)\]\s*TJ)/g;
+      let tj: RegExpExecArray | null;
+      while ((tj = tjRegex.exec(cs)) !== null) {
+        const chunk = tj[0];
+        const hexTokens = chunk.match(/<([0-9A-Fa-f]+)>/g);
+        if (!hexTokens) continue;
+        let line = "";
+        for (const ht of hexTokens) {
+          const hex = ht.replace(/[<>]/g, "");
+          for (let i = 0; i < hex.length; i += 4) {
+            const tok = hex.slice(i, i + 4).toUpperCase();
+            if (cmap.has(tok)) {
+              line += cmap.get(tok);
+            }
+          }
+        }
+        if (line.trim()) lines.push(line.trim());
+      }
+    }
+
+    return lines.join("\n");
+  } catch (err) {
+    console.warn("CMap stream extraction note:", err);
+    return "";
+  }
+}
 
 // List of non-medicine words to filter out from prescription OCR
 const NON_MEDICINE_WORDS = new Set([
@@ -96,6 +160,19 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
     return text
   }
 
+  // 1b. Check CMap streams directly (handles font subsets in PDF reports & prescriptions)
+  try {
+    const cmapText = extractTextUsingPDFCMaps(buffer)
+    if (cmapText && cmapText.trim().length >= 50) {
+      return cmapText
+    }
+    if (cmapText && cmapText.trim()) {
+      text = cmapText
+    }
+  } catch (cmapErr) {
+    console.warn("CMap stream extraction notice:", cmapErr)
+  }
+
   // 2. Tesseract OCR Fallback for scanned / image-based PDF pages
   console.log("PDF digital text is empty or sparse (<50 chars). Running Tesseract OCR on PDF page images...")
   try {
@@ -178,16 +255,102 @@ export function sanitizeMedications(medications: ExtractedMedication[]): Extract
   return cleanList
 }
 
+/**
+ * Uses Gemini API multimodal vision strictly for prescriptions (OCR & extraction).
+ * Sends the actual file (PDF or image) as inlineData directly to Gemini 2.5 Flash.
+ * Strictly NOT used for lab reports.
+ */
 export async function extractPrescriptionData(buffer: Buffer, mimeType: string): Promise<any> {
-  return await fallbackPrescriptionExtraction(buffer, mimeType)
+  const base64Data = buffer.toString("base64");
+  const normalizedMime = mimeType.includes("pdf") ? "application/pdf" : mimeType.startsWith("image/") ? mimeType : "application/pdf";
+
+  const systemPrompt = `You are an expert clinical medical transcriptionist and OCR specialist.
+Analyze this attached prescription document (image or PDF) with extreme accuracy.
+Extract all clinical information and return strictly valid JSON matching this schema:
+{
+  "documentType": "prescription",
+  "patientName": "string or null",
+  "date": "string (YYYY-MM-DD or DD/MM/YYYY) or null",
+  "diagnosis": ["string (e.g., Acute Gastritis, Viral Infection, Enteric Fever, Typhoid)"],
+  "symptoms": ["string"],
+  "vitals": {
+    "temperature": "string or null (e.g., 100 F)",
+    "bloodPressure": "string or null (e.g., 120/80 mmHg)",
+    "pulseRate": "string or null (e.g., 72 bpm)",
+    "weight": "string or null (e.g., 70 kg)"
+  },
+  "medications": [
+    {
+      "name": "string (e.g., Tab. Azithromycin 500mg, Tab. Dolo 650mg, Cap. Pan 40mg, Cap. Darolac)",
+      "dosage": "string (e.g., 1-0-0, 1 SOS, 1-0-1)",
+      "duration": "string (e.g., 7 Days, 5 Days)",
+      "instructions": "string (e.g., After meal, Empty stomach, If fever > 100 F)"
+    }
+  ],
+  "advice": ["string (dietary or general advice)"],
+  "doctorName": "string or null (e.g., Dr. Rahul Verma)"
+}
+Return only pure JSON without markdown codeblocks or conversational text.`;
+
+  // 1. Primary: Call Gemini Multimodal Vision API directly on the prescription document
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey && apiKey !== "dummy") {
+      const client = new GoogleGenAI({ apiKey });
+      const response = await client.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          systemPrompt,
+          {
+            inlineData: {
+              data: base64Data,
+              mimeType: normalizedMime,
+            },
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.1,
+        },
+      });
+
+      if (response && response.text) {
+        const cleaned = response.text
+          .replace(/```json/gi, "")
+          .replace(/```/g, "")
+          .trim();
+        const parsed = JSON.parse(cleaned);
+        if (
+          parsed &&
+          ((Array.isArray(parsed.medications) && parsed.medications.length > 0) ||
+           (Array.isArray(parsed.diagnosis) && parsed.diagnosis.length > 0) ||
+           parsed.doctorName ||
+           parsed.patientName)
+        ) {
+          return parsed;
+        }
+      }
+    }
+  } catch (geminiErr) {
+    console.warn("Gemini multimodal prescription extraction note, executing local fallback:", geminiErr);
+  }
+
+  // 2. Resilient Fallback: Local OCR + Structured Rule Extraction (offline or no API key)
+  return await fallbackLocalPrescriptionExtraction(buffer, mimeType);
 }
 
+/**
+ * Local extraction for Lab Reports.
+ * STRICTLY does NOT use Gemini API to guarantee instant latency, data privacy, and zero API quota consumption.
+ */
 export async function extractMedicalData(buffer: Buffer, mimeType: string): Promise<ExtractedMedicalData> {
-  return await fallbackLabReportExtraction(buffer, mimeType)
+  return await fallbackLabReportExtraction(buffer, mimeType);
 }
 
-
-async function fallbackPrescriptionExtraction(buffer: Buffer, mimeType: string): Promise<any> {
+/**
+ * Resilient local prescription extraction fallback using unpdf, CMap streams, Tesseract OCR, and regex parsing.
+ */
+async function fallbackLocalPrescriptionExtraction(buffer: Buffer, mimeType: string): Promise<any> {
   let extractedText = ""
 
   if (mimeType.includes("pdf") || mimeType === "application/octet-stream") {
@@ -195,72 +358,159 @@ async function fallbackPrescriptionExtraction(buffer: Buffer, mimeType: string):
   } else if (mimeType.startsWith("image/")) {
     try {
       const ret = await Tesseract.recognize(buffer, "eng")
-      extractedText = ret.data.text || ""
+      extractedText = ret?.data?.text || ""
     } catch (err) {
-      console.error("Tesseract prescription fallback failed:", err)
+      console.warn("Tesseract prescription fallback note:", err)
     }
   }
-  
+
   if (!extractedText.trim()) {
     try {
       const ret = await Tesseract.recognize(buffer, "eng")
-      extractedText = ret.data.text || ""
-    } catch (err) {
-      console.error("Tesseract universal fallback failed:", err)
-    }
+      extractedText = ret?.data?.text || ""
+    } catch {}
   }
 
-  const systemPrompt = `You are an expert medical transcriptionist. Extract all clinical details from this prescription into valid JSON. Do not include markdown codeblocks or extra text.
+  const cleanSalutations = (str: string) =>
+    str.replace(/\b(mr\.|mrs\.|ms\.|smt\.|shri\.|dr\.|master\.|miss\.|mr|mrs|ms|smt|shri|dr|master|miss)\b/gi, "").replace(/\s+/g, " ").trim()
 
-Return exactly this JSON schema:
-{
-  "documentType": "prescription",
-  "patientName": "string or null",
-  "date": "string (YYYY-MM-DD or DD/MM/YYYY) or null",
-  "diagnosis": ["string (e.g., Acute Gastritis, Viral Infection)"],
-  "symptoms": ["string"],
-  "vitals": {
-    "temperature": "string or null",
-    "bloodPressure": "string or null",
-    "pulseRate": "string or null",
-    "weight": "string (e.g., 70 kg) or null"
-  },
-  "medications": [
-    {
-      "name": "string (e.g., Cap. Pantoprazole 40mg)",
-      "dosage": "string (e.g., 1-0-0)",
-      "duration": "string (e.g., 7 Days)",
-      "instructions": "string (e.g., 30 mins before breakfast)"
-    }
-  ],
-  "advice": ["string (dietary or general advice)"],
-  "doctorName": "string or null"
-}`;
+  // Patient Name
+  let patientName: string | null = null
+  const nameMatch = extractedText.match(/(?:patient\s*name|patient\'?s?\s*name|name\s*of\s*patient|name)\s*[:\-\=]?\s*(?:mr\.|mrs\.|ms\.|dr\.)?\s*([A-Za-z\s\.]{2,50})/i)
+  if (nameMatch && nameMatch[1]) {
+    let rawName = nameMatch[1].trim().replace(/\b(age|sex|gender|dob|ref|date|weight|diagnosis|dr)\b.*/i, "").trim()
+    rawName = cleanSalutations(rawName)
+    if (rawName.length > 1) patientName = rawName
+  }
 
-  let parsed: any = { documentType: "prescription", diagnosis: [], symptoms: [], medications: [], vitals: {} };
+  // Doctor Name
+  let doctorName: string | null = null
+  const docMatch = extractedText.match(/(?:dr\.|doctor)[^\w]?\s*([a-z\s\.]+)/i)
+  if (docMatch && docMatch[1]) {
+    const rawDoc = docMatch[1].trim().split(/\n|\r|\t|,|MBBS|MD/)[0].trim().slice(0, 40)
+    doctorName = `Dr. ${cleanSalutations(rawDoc)}`
+  }
 
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `${systemPrompt}\n\nRaw OCR Text:\n${extractedText}`,
-      config: {
-        responseMimeType: "application/json",
-        temperature: 0.1
+  // Date
+  let date: string | null = null
+  const dateMatch = extractedText.match(/(?:date|dated)\s*[:\-\=]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{2,4})/i)
+  if (dateMatch && dateMatch[1]) {
+    date = dateMatch[1].trim()
+  }
+
+  // Vitals
+  const vitals: { temperature: string | null; bloodPressure: string | null; pulseRate: string | null; weight: string | null } = {
+    temperature: null,
+    bloodPressure: null,
+    pulseRate: null,
+    weight: null,
+  }
+
+  const weightMatch = extractedText.match(/(?:weight|wt)\s*[:\-\=]?\s*(\d{2,3}(?:\.\d+)?\s*(?:kg|lbs)?)/i)
+  if (weightMatch) vitals.weight = weightMatch[1].trim()
+
+  const tempMatch = extractedText.match(/(?:temperature|temp)\s*[:\-\=]?\s*(\d{2,3}(?:\.\d+)?\s*(?:[°º]?\s*[fc]|deg\s*[fc])?)/i)
+  if (tempMatch) vitals.temperature = tempMatch[1].trim()
+
+  const bpMatch = extractedText.match(/(?:blood\s*pressure|bp)\s*[:\-\=]?\s*(\d{2,3}\s*\/\s*\d{2,3}\s*(?:mm\s*hg)?)/i)
+  if (bpMatch) vitals.bloodPressure = bpMatch[1].trim()
+
+  const pulseMatch = extractedText.match(/(?:pulse|pulse\s*rate|pr|heart\s*rate|hr)\s*[:\-\=]?\s*(\d{2,3}\s*(?:bpm)?)/i)
+  if (pulseMatch) vitals.pulseRate = pulseMatch[1].trim()
+
+  // Diagnosis
+  const diagnosis: string[] = []
+  const diagMatch = extractedText.match(/(?:diagnosis|diagnosed\s*with|dx|impression|condition)\s*[:\-\=]?\s*([A-Za-z0-9\s,\(\)\-\/]+?)(?=\n\n|rx|medication|medicine|tab|cap|syp|advice|date|\r\n\r\n|$)/i)
+  if (diagMatch && diagMatch[1]) {
+    const rawDiag = diagMatch[1].trim().split(/,|\n|\r/).map(d => d.trim()).filter(d => d.length > 2)
+    diagnosis.push(...rawDiag.slice(0, 3))
+  }
+
+  // Medications
+  const medications: ExtractedMedication[] = []
+  const lines = extractedText.split(/[\r\n]+/)
+
+  const COMMON_MEDS = [
+    "Azithromycin", "Dolo", "Pan", "Darolac", "Paracetamol", "Amoxicillin", "Pantoprazole",
+    "Cetirizine", "Ibuprofen", "Aspirin", "Metformin", "Atorvastatin", "Cefim", "Cefixime",
+    "Augmentin", "Linezolid", "Levofloxacin", "Ciprofloxacin", "Omeprazole", "Ranitidine",
+    "Telmisartan", "Amlodipine", "Montelukast", "Calpol", "Crocin", "Allegra", "Sinarest"
+  ]
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (!line || line.length < 3) continue
+
+    const isMedLine = /\b(?:tab\.|cap\.|syp\.|inj\.|tablet|capsule|syrup|injection)\b/i.test(line) ||
+      COMMON_MEDS.some(med => new RegExp(`\\b${med}\\b`, "i").test(line))
+
+    if (isMedLine) {
+      let dosage = "1-0-0"
+      let duration = "5 Days"
+      let instructions = "After meals"
+
+      // Check on same line
+      const sameLineDosage = line.match(/\b(?:\d\s*[\-\/]\s*\d\s*[\-\/]\s*\d|\d\s*SOS|once\s*daily|twice\s*daily|thrice\s*daily|bd|tds|od|sos)\b/i)
+      const sameLineDuration = line.match(/\b(?:\d+\s*(?:days?|weeks?|months?))\b/i)
+      const sameLineInstruction = line.match(/\b(?:after\s*meals?|before\s*meals?|empty\s*stomach|before\s*breakfast|at\s*bedtime|with\s*water|if\s*fever[^\n\r]*)\b/i)
+
+      if (sameLineDosage) dosage = sameLineDosage[0].trim()
+      if (sameLineDuration) duration = sameLineDuration[0].trim()
+      if (sameLineInstruction) instructions = sameLineInstruction[0].trim()
+
+      // Also look ahead up to 5 lines for table-formatted columns
+      for (let j = i + 1; j < Math.min(lines.length, i + 6); j++) {
+        const next = lines[j].trim()
+        if (/^\d+\.\s*$/.test(next) || /\b(?:tab\.|cap\.|syp\.|inj\.|general|follow\s*up)\b/i.test(next)) break
+        if (/^\d\s*[\-\/]\s*\d\s*[\-\/]\s*\d$|^\d+\s*SOS$|once\s*daily|twice\s*daily|thrice\s*daily/i.test(next)) {
+          dosage = next
+        } else if (/^\d+\s*(?:days?|weeks?|months?)/i.test(next)) {
+          duration = next
+        } else if (/meal|stomach|fever|breakfast|bedtime|water/i.test(next)) {
+          instructions = next
+        }
       }
-    });
-    
-    if (response.text) {
-      const cleaned = response.text
-        .replace(/```json/gi, "")
-        .replace(/```/g, "")
-        .trim();
-      parsed = JSON.parse(cleaned);
+
+      // Clean medicine name
+      let medName = line
+        .replace(sameLineDosage ? sameLineDosage[0] : "", "")
+        .replace(sameLineDuration ? sameLineDuration[0] : "", "")
+        .replace(sameLineInstruction ? sameLineInstruction[0] : "", "")
+        .replace(/^[0-9]+[\.\)\-\s]+/, "")
+        .replace(/[\t\|]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+
+      if (medName.length >= 3) {
+        medications.push({
+          name: medName,
+          dosage,
+          duration,
+          instructions,
+        })
+      }
     }
-  } catch (err) {
-    console.error("Failed to parse Gemini OCR JSON:", err);
   }
 
-  return parsed;
+  // Advice
+  const advice: string[] = []
+  const adviceMatch = extractedText.match(/(?:advice|general\s*advice|instructions|diet)\s*[:\-\=]?\s*([\s\S]+?)(?=follow\s*up|doctor|dr\.|\n\n\n|$)/i)
+  if (adviceMatch && adviceMatch[1]) {
+    const adviceLines = adviceMatch[1].split(/[\r\n]+/).map(a => a.trim().replace(/^[0-9\.\-\*•]+\s*/, "")).filter(a => a.length > 5)
+    advice.push(...adviceLines.slice(0, 5))
+  }
+
+  return {
+    documentType: "prescription",
+    patientName,
+    date: date || new Date().toISOString().split("T")[0],
+    diagnosis: diagnosis.length > 0 ? diagnosis : ["General Consultation"],
+    symptoms: [],
+    vitals,
+    medications,
+    advice,
+    doctorName,
+  }
 }
 
 /**

@@ -104,7 +104,7 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
 ]
 
 export default function LoginPage() {
-  const { isLoaded, isSignedIn, user } = useAuth()
+  const { isLoaded, isSignedIn } = useAuth()
   const { user: clerkUser } = useUser()
 
   // Layout view mode: 'both' | 'demo' | 'clerk'
@@ -127,23 +127,24 @@ export default function LoginPage() {
   const [showDemoPassword, setShowDemoPassword] = useState(false)
   const [verifyingDemo, setVerifyingDemo] = useState(false)
 
-  // Redirect after Clerk sign in
+  // Redirect after Clerk sign in (instant redirect without stuck state)
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || !user) return
+    if (!isLoaded || !isSignedIn) return
 
     const role =
       (clerkUser?.unsafeMetadata?.role as string)?.toUpperCase() ||
       (clerkUser?.publicMetadata?.role as string)?.toUpperCase() ||
       "PATIENT"
 
-    if (role === "DOCTOR") {
-      window.location.href = "/doctor/dashboard"
-    } else if (role === "ADMIN") {
-      window.location.href = "/admin"
-    } else {
-      window.location.href = "/patient/dashboard"
-    }
-  }, [isLoaded, isSignedIn, user, clerkUser])
+    const target =
+      role === "DOCTOR"
+        ? "/doctor/dashboard"
+        : role === "ADMIN"
+        ? "/admin"
+        : "/patient/dashboard"
+
+    window.location.replace(target)
+  }, [isLoaded, isSignedIn, clerkUser])
 
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard?.writeText(text)
@@ -660,8 +661,8 @@ export default function LoginPage() {
                     routing="path"
                     path="/login"
                     signUpUrl="/register"
-                    forceRedirectUrl="/login"
-                    fallbackRedirectUrl="/login"
+                    fallbackRedirectUrl="/dashboard"
+                    signUpFallbackRedirectUrl="/dashboard"
                   />
                 </ClerkLoaded>
               </div>

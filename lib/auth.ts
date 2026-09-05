@@ -331,52 +331,57 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
             ? rawRole
             : "PATIENT"
 
-        // If email or name missing from claims, fetch Clerk user details
-        if (!primaryEmail || !isValidUserName(rawName)) {
-          try {
-            const curUser = await clerkCurrentUser()
-            if (curUser) {
-              const curName = curUser.fullName ||
-                (curUser.firstName && curUser.lastName ? `${curUser.firstName} ${curUser.lastName}` : curUser.firstName) ||
-                curUser.username ||
-                ""
-              if (isValidUserName(curName)) {
-                rawName = curName
-              }
-              const curEmail = curUser.emailAddresses?.[0]?.emailAddress
-              if (curEmail) {
-                primaryEmail = curEmail
-              }
-            }
-          } catch (e) {
-            console.warn("[getAuthSession] clerkCurrentUser error:", e)
-          }
+        // 2. Fast DB Lookup: check Prisma directly (5-15ms) before hitting slow WAN API
+        const searchConditions: any[] = [{ id: clerkId }]
+        if (primaryEmail) {
+          searchConditions.push({ email: primaryEmail.toLowerCase().trim() })
         }
 
-        if (!primaryEmail) {
-          primaryEmail = `${clerkId}@clerk.user`
-        }
-
-        // Look up user in Prisma to get the name they saved in Profile
         let dbUser = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { id: clerkId },
-              { email: primaryEmail.toLowerCase().trim() },
-            ],
-          },
+          where: { OR: searchConditions },
           select: { id: true, name: true, email: true, role: true, subscriptionTier: true, paymentStatus: true }
         }).catch(() => null)
 
         if (dbUser) {
           if (isValidUserName(dbUser.name)) {
             rawName = dbUser.name
+          } else if (!isValidUserName(rawName) && dbUser.email) {
+            rawName = formatNameFromEmail(dbUser.email)
+          }
+          if (!primaryEmail && dbUser.email) {
+            primaryEmail = dbUser.email
           }
           setCachedSyncedUser(clerkId, {
             ...dbUser,
             name: rawName || dbUser.name,
           })
         } else {
+          // New user not yet in DB: fetch full details from Clerk to provision
+          if (!primaryEmail || !isValidUserName(rawName)) {
+            try {
+              const curUser = await clerkCurrentUser()
+              if (curUser) {
+                const curName = curUser.fullName ||
+                  (curUser.firstName && curUser.lastName ? `${curUser.firstName} ${curUser.lastName}` : curUser.firstName) ||
+                  curUser.username ||
+                  ""
+                if (isValidUserName(curName)) {
+                  rawName = curName
+                }
+                const curEmail = curUser.emailAddresses?.[0]?.emailAddress
+                if (curEmail) {
+                  primaryEmail = curEmail
+                }
+              }
+            } catch (e) {
+              console.warn("[getAuthSession] clerkCurrentUser error:", e)
+            }
+          }
+
+          if (!primaryEmail) {
+            primaryEmail = `${clerkId}@clerk.user`
+          }
+
           // Sync to DB in background
           syncClerkUserWithPrisma({
             clerkId,
@@ -386,7 +391,7 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
           }).catch(() => {})
         }
 
-        // If still no custom name, derive cleanly from the email they logged in with!
+        // If still no custom name, derive cleanly from email
         if (!isValidUserName(rawName)) {
           if (primaryEmail && !primaryEmail.includes("@clerk.user")) {
             rawName = formatNameFromEmail(primaryEmail)

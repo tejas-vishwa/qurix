@@ -84,6 +84,11 @@ async function applyRateLimiting(
 export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl
 
+  // Fast path: bypass internal Clerk SDK requests
+  if (pathname.startsWith("/__clerk")) {
+    return NextResponse.next()
+  }
+
   // Single auth() call — reuse result throughout
   let userId: string | null = null
   let role = ""
@@ -101,7 +106,7 @@ export default clerkMiddleware(async (auth, req) => {
 
   // Redirect authenticated users away from auth pages immediately
   if (userId && (pathname.startsWith("/login") || pathname.startsWith("/register"))) {
-    const target = role === "DOCTOR" ? "/doctor/dashboard" : "/patient/dashboard"
+    const target = role === "DOCTOR" ? "/doctor/dashboard" : role === "ADMIN" ? "/admin" : "/patient/dashboard"
     return NextResponse.redirect(new URL(target, req.url))
   }
 
@@ -112,8 +117,7 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/((?!_next|__clerk|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
-    "/__clerk/:path*",
   ],
 }

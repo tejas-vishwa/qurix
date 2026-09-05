@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { PatientNavbar } from "@/components/PatientNavbar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,12 +28,13 @@ export default function ProfilePage() {
     try {
       const res = await fetch("/api/user/profile");
       const data = await res.json();
-      if (data.user) {
+      const u = data?.user || data;
+      if (u) {
         setFormData({
-          name: data.user.name || "",
-          email: data.user.email || "",
-          age: data.user.age ? data.user.age.toString() : "",
-          location: data.user.location || "",
+          name: u.name && u.name.toLowerCase() !== "patient" && !u.name.startsWith("user_") ? u.name : "",
+          email: u.email || "",
+          age: u.age ? u.age.toString() : "",
+          location: u.location || "",
         });
       }
     } catch (error) {
@@ -75,24 +75,18 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
-        <PatientNavbar />
-        <main className="flex-1 container mx-auto p-4 flex items-center justify-center">
-          <p>Loading profile...</p>
-        </main>
+      <div className="container mx-auto p-4 flex items-center justify-center min-h-[50vh]">
+        <p className="text-muted-foreground">Loading profile...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
-      <PatientNavbar />
-      
-      <main className="flex-1 container mx-auto p-4 md:p-8 max-w-3xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Profile Settings</h1>
-          <p className="text-slate-500">Manage your personal information and preferences.</p>
-        </div>
+    <div className="container mx-auto p-4 md:p-8 max-w-3xl">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Profile Settings</h1>
+        <p className="text-slate-500">Manage your personal information and preferences.</p>
+      </div>
 
         <Card className="shadow-neumorphic border-0 bg-glass backdrop-blur-md transition-all">
           <CardHeader>
@@ -169,7 +163,6 @@ export default function ProfilePage() {
             </form>
           </CardContent>
         </Card>
-      </main>
     </div>
   );
 }

@@ -10,32 +10,57 @@ import { QurixLogo } from "@/components/QurixLogo"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Sparkles } from "lucide-react"
 
+export function formatNameFromEmail(email?: string | null): string {
+  if (!email || !email.includes("@")) return ""
+  const prefix = email.split("@")[0].trim()
+  if (!prefix || prefix.startsWith("user_")) return ""
+  const words = prefix.split(/[._-]+/).filter(Boolean)
+  if (words.length > 0) {
+    return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+  }
+  return prefix.charAt(0).toUpperCase() + prefix.slice(1)
+}
+
+export function isValidName(name?: string | null): boolean {
+  if (!name || typeof name !== "string") return false
+  const trimmed = name.trim()
+  if (!trimmed) return false
+  if (trimmed.startsWith("user_")) return false
+  if (trimmed.toLowerCase() === "patient") return false
+  return true
+}
+
+function resolveInitialName(userName?: string | null, userEmail?: string | null): string {
+  if (isValidName(userName)) return userName!.trim()
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("qurix_user_name")
+    if (isValidName(stored)) return stored!.trim()
+  }
+  const fromEmail = formatNameFromEmail(userEmail)
+  if (isValidName(fromEmail)) return fromEmail
+  return ""
+}
+
 interface PatientNavbarProps {
   userName?: string | null
+  userEmail?: string | null
   subscriptionTier?: string | null
 }
 
-export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps) {
+export function PatientNavbar({ userName, userEmail, subscriptionTier }: PatientNavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
   const { signOut: clerkSignOut } = useClerk()
   const { user: clerkUser } = useUser()
 
-  const [displayName, setDisplayName] = useState<string>(() => {
-    if (userName && !userName.startsWith("user_")) return userName
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("qurix_user_name")
-      if (stored && !stored.startsWith("user_")) return stored
-    }
-    return ""
-  })
+  const [displayName, setDisplayName] = useState<string>(() => resolveInitialName(userName, userEmail))
 
   useEffect(() => {
-    // 1. If server prop gives a human name
-    if (userName && !userName.startsWith("user_")) {
-      setDisplayName(userName)
+    // 1. If server prop gives a valid human name
+    if (isValidName(userName)) {
+      setDisplayName(userName!.trim())
       if (typeof window !== "undefined") {
-        localStorage.setItem("qurix_user_name", userName)
+        localStorage.setItem("qurix_user_name", userName!.trim())
       }
       return
     }
@@ -43,43 +68,70 @@ export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps
     // 2. Check localStorage
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("qurix_user_name")
-      if (stored && !stored.startsWith("user_")) {
-        setDisplayName(stored)
+      if (isValidName(stored)) {
+        setDisplayName(stored!.trim())
         return
       }
     }
 
     // 3. Check Clerk user
     if (clerkUser) {
-      const cName = clerkUser.fullName || clerkUser.firstName || clerkUser.username
-      if (cName && !cName.startsWith("user_")) {
-        setDisplayName(cName)
+      const cName = clerkUser.fullName ||
+        (clerkUser.firstName && clerkUser.lastName ? `${clerkUser.firstName} ${clerkUser.lastName}` : clerkUser.firstName) ||
+        clerkUser.username
+      if (isValidName(cName)) {
+        setDisplayName(cName!)
         if (typeof window !== "undefined") {
-          localStorage.setItem("qurix_user_name", cName)
+          localStorage.setItem("qurix_user_name", cName!)
+        }
+        return
+      }
+      const cEmail = clerkUser.primaryEmailAddress?.emailAddress || clerkUser.emailAddresses?.[0]?.emailAddress
+      const cEmailName = formatNameFromEmail(cEmail)
+      if (isValidName(cEmailName)) {
+        setDisplayName(cEmailName)
+        if (typeof window !== "undefined") {
+          localStorage.setItem("qurix_user_name", cEmailName)
         }
         return
       }
     }
 
-    // 4. Fetch latest profile from DB
+    // 4. Check userEmail prop
+    const emailName = formatNameFromEmail(userEmail)
+    if (isValidName(emailName)) {
+      setDisplayName(emailName)
+      if (typeof window !== "undefined") {
+        localStorage.setItem("qurix_user_name", emailName)
+      }
+    }
+
+    // 5. Fetch latest profile from DB
     fetch("/api/user/profile")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.name && !data.name.startsWith("user_")) {
-          setDisplayName(data.name)
+        const u = data?.user || data
+        if (isValidName(u?.name)) {
+          setDisplayName(u.name)
           if (typeof window !== "undefined") {
-            localStorage.setItem("qurix_user_name", data.name)
+            localStorage.setItem("qurix_user_name", u.name)
+          }
+        } else if (!displayName && isValidName(formatNameFromEmail(u?.email))) {
+          const uEmailName = formatNameFromEmail(u.email)
+          setDisplayName(uEmailName)
+          if (typeof window !== "undefined") {
+            localStorage.setItem("qurix_user_name", uEmailName)
           }
         }
       })
       .catch(() => {})
-  }, [userName, clerkUser])
+  }, [userName, userEmail, clerkUser])
 
   // Listen for immediate profile updates from the Profile page
   useEffect(() => {
     const handleProfileUpdate = (e: any) => {
       const newName = e.detail?.name || (typeof window !== "undefined" ? localStorage.getItem("qurix_user_name") : null)
-      if (newName && !newName.startsWith("user_")) {
+      if (isValidName(newName)) {
         setDisplayName(newName)
       }
     }
@@ -105,6 +157,9 @@ export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps
     { name: "Appointments", href: "/patient/appointments", icon: Calendar, desc: "Doctor bookings & queues" },
     { name: "Profile", href: "/patient/profile", icon: User, desc: "Manage personal information" },
   ]
+
+  const fallbackLoginName = formatNameFromEmail(userEmail) || "User"
+  const greetingName = displayName || fallbackLoginName
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-md">
@@ -137,7 +192,7 @@ export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps
         <div className="hidden md:flex items-center space-x-4">
           <ThemeToggle />
           <div className="flex items-center space-x-2 px-3 py-1.5 bg-primary/5 rounded-full border border-primary/10">
-            <span className="text-sm font-medium">Hello, {displayName || "Patient"}</span>
+            <span className="text-sm font-medium">Hello, {greetingName}</span>
             {subscriptionTier === "QURIX_PLUS" && (
               <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-0.5 rounded-full shadow-sm">
                 <Sparkles className="h-3 w-3" /> Plus
@@ -199,7 +254,7 @@ export function PatientNavbar({ userName, subscriptionTier }: PatientNavbarProps
               <div>
                 <p className="text-xs text-primary uppercase font-bold tracking-wider">Signed in as</p>
                 <div className="flex items-center gap-2">
-                  <p className="text-lg font-extrabold text-foreground">{displayName || "Patient"}</p>
+                  <p className="text-lg font-extrabold text-foreground">{greetingName}</p>
                   {subscriptionTier === "QURIX_PLUS" && (
                     <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-0.5 rounded-full shadow-sm">
                       <Sparkles className="h-3 w-3" /> Plus

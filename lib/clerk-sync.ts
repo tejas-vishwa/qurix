@@ -55,8 +55,8 @@ export async function syncClerkUserWithPrisma({
     })
 
     if (user) {
-      // Only write to DB if name is missing — avoids a pointless UPDATE on every page load
-      if (!user.name && name) {
+      // Only write to DB if name is missing or invalid — avoids a pointless UPDATE on every page load
+      if ((!user.name || user.name.toLowerCase() === "patient" || user.name.startsWith("user_")) && name && name.toLowerCase() !== "patient" && !name.startsWith("user_")) {
         user = await prisma.user.update({
           where: { id: user.id },
           data: { name },
@@ -66,13 +66,17 @@ export async function syncClerkUserWithPrisma({
       return user
     }
 
+    const initialName = (name && name.toLowerCase() !== "patient" && !name.startsWith("user_"))
+      ? name
+      : (normalizedEmail.includes("@") ? normalizedEmail.split("@")[0] : "User")
+
     // Create fresh user record in Prisma
     user = await prisma.user.create({
       data: {
         id: clerkId,
         email: normalizedEmail,
         passwordHash: "clerk_managed_auth",
-        name: name || normalizedEmail.split("@")[0],
+        name: initialName,
         role: role || "PATIENT",
         emailVerified: new Date(),
         subscriptionTier: "FREE",

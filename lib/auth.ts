@@ -193,6 +193,7 @@ export const authOptions: NextAuthOptions = {
     async session({ token, session }) {
       if (token && session.user) {
         session.user.id = token.id as string
+        if (token.name) session.user.name = token.name as string
         session.user.role = token.role as string
         session.user.subscriptionTier = token.subscriptionTier as string
         session.user.paymentStatus = token.paymentStatus as string
@@ -202,6 +203,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id
+        token.name = user.name
         token.role = (user as any).role || "PATIENT"
         token.subscriptionTier = (user as any).subscriptionTier || "FREE"
         token.paymentStatus = (user as any).paymentStatus || "NONE"
@@ -222,6 +224,26 @@ export interface AppUserSession {
   }
 }
 
+export function formatNameFromEmail(email?: string | null): string {
+  if (!email || !email.includes("@")) return "User"
+  const prefix = email.split("@")[0].trim()
+  if (!prefix || prefix.startsWith("user_")) return "User"
+  const words = prefix.split(/[._-]+/).filter(Boolean)
+  if (words.length > 0) {
+    return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+  }
+  return prefix.charAt(0).toUpperCase() + prefix.slice(1)
+}
+
+function isValidUserName(name?: string | null): boolean {
+  if (!name || typeof name !== "string") return false
+  const trimmed = name.trim()
+  if (!trimmed) return false
+  if (trimmed.startsWith("user_")) return false
+  if (trimmed.toLowerCase() === "patient") return false
+  return true
+}
+
 // ─── React.cache: deduplicate calls within the same request ───────────────────
 // If layout + page both call getAuthSession(), it only runs ONCE per request.
 export const getAuthSession = cache(async (_options?: any): Promise<AppUserSession | null> => {
@@ -237,7 +259,7 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
       if (clerkId) {
         // 1. Fastest path: in-memory cache hit (same serverless instance)
         const cachedUser = getCachedSyncedUser(clerkId)
-        if (cachedUser && cachedUser.name && !cachedUser.name.startsWith("user_")) {
+        if (cachedUser && isValidUserName(cachedUser.name)) {
           return {
             user: {
               id: cachedUser.id,
@@ -251,10 +273,10 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
         }
 
         const claims = (authObj?.sessionClaims as any) || {}
-        const primaryEmail =
+        let primaryEmail =
           claims.email ||
           claims.primary_email ||
-          `${clerkId}@clerk.user`
+          ""
         let rawName = claims.name || claims.full_name || claims.firstName || ""
         const rawRole = (
           claims.role ||
@@ -268,6 +290,32 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
             ? rawRole
             : "PATIENT"
 
+        // If email or name missing from claims, fetch Clerk user details
+        if (!primaryEmail || !isValidUserName(rawName)) {
+          try {
+            const curUser = await clerkCurrentUser()
+            if (curUser) {
+              const curName = curUser.fullName ||
+                (curUser.firstName && curUser.lastName ? `${curUser.firstName} ${curUser.lastName}` : curUser.firstName) ||
+                curUser.username ||
+                ""
+              if (isValidUserName(curName)) {
+                rawName = curName
+              }
+              const curEmail = curUser.emailAddresses?.[0]?.emailAddress
+              if (curEmail) {
+                primaryEmail = curEmail
+              }
+            }
+          } catch (e) {
+            console.warn("[getAuthSession] clerkCurrentUser error:", e)
+          }
+        }
+
+        if (!primaryEmail) {
+          primaryEmail = `${clerkId}@clerk.user`
+        }
+
         // Look up user in Prisma to get the name they saved in Profile
         let dbUser = await prisma.user.findFirst({
           where: {
@@ -280,7 +328,7 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
         }).catch(() => null)
 
         if (dbUser) {
-          if (dbUser.name && !dbUser.name.startsWith("user_")) {
+          if (isValidUserName(dbUser.name)) {
             rawName = dbUser.name
           }
           setCachedSyncedUser(clerkId, {
@@ -297,12 +345,12 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
           }).catch(() => {})
         }
 
-        // Clean fallback: never show raw user_3luv... ID to the user!
-        if (!rawName || rawName.startsWith("user_")) {
+        // If still no custom name, derive cleanly from the email they logged in with!
+        if (!isValidUserName(rawName)) {
           if (primaryEmail && !primaryEmail.includes("@clerk.user")) {
-            rawName = primaryEmail.split("@")[0]
+            rawName = formatNameFromEmail(primaryEmail)
           } else {
-            rawName = "Patient"
+            rawName = "User"
           }
         }
 
@@ -326,6 +374,10 @@ export const getAuthSession = cache(async (_options?: any): Promise<AppUserSessi
   try {
     const session = await getNextAuthSession(authOptions)
     if (session?.user?.id) {
+      const u = session.user as any
+      if (!isValidUserName(u.name)) {
+        u.name = isValidUserName(u.email) ? formatNameFromEmail(u.email) : "User"
+      }
       return session as AppUserSession
     }
   } catch (error) {

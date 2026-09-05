@@ -18,7 +18,11 @@ export default async function PatientLayout({ children }: { children: React.Reac
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground transition-colors duration-300">
-      <PatientNavbar userName={session.user.name} subscriptionTier={session.user.subscriptionTier} />
+      <PatientNavbar
+        userName={session.user.name}
+        userEmail={session.user.email}
+        subscriptionTier={session.user.subscriptionTier}
+      />
       <main className="flex-1 p-4 md:p-6 lg:p-8">
         <BackButton />
         {children}

@@ -1,11 +1,11 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { signIn, getSession } from "next-auth/react"
 import { BackButton } from "@/components/BackButton"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { User, Stethoscope, ShieldCheck, Lock, Eye, EyeOff, Loader2, Mail, CheckCircle2, RefreshCw, Sparkles } from "lucide-react"
+import { User, Stethoscope, ShieldCheck, Lock, Eye, EyeOff, Loader2, Mail, CheckCircle2, RefreshCw, Sparkles, ArrowRight } from "lucide-react"
 import { QurixLogo } from "@/components/QurixLogo"
 
 import { Button } from "@/components/ui/button"
@@ -60,16 +60,33 @@ export default function LoginPage() {
     return () => clearInterval(interval)
   }, [resendTimer])
 
-  const redirectByRole = async () => {
-    const session = await getSession()
-    if (session?.user?.role === "ADMIN") {
-      router.push("/admin")
-    } else if (session?.user?.role === "DOCTOR") {
-      router.push("/doctor/dashboard")
-    } else {
-      router.push("/patient/dashboard")
+  const [signingInDemoEmail, setSigningInDemoEmail] = useState<string | null>(null)
+
+  const redirectByRole = () => {
+    window.location.href = "/dashboard"
+  }
+
+  const handleDirectDemoSignIn = async (account: DemoAccount) => {
+    setSigningInDemoEmail(account.email)
+    setError("")
+    try {
+      const pwd = account.email.includes("teamqurix.com") ? "BB@1234@QURIX" : "demo1234"
+      const res = await signIn("credentials", {
+        email: account.email,
+        password: pwd,
+        redirect: false,
+      })
+
+      if (res?.error) {
+        setError("Sign in error: " + res.error)
+        setSigningInDemoEmail(null)
+      } else {
+        window.location.href = account.roleUrl
+      }
+    } catch (err: any) {
+      setError(err?.message || "Sign in failed")
+      setSigningInDemoEmail(null)
     }
-    router.refresh()
   }
 
   // 1. Password-based Login
@@ -255,8 +272,7 @@ export default function LoginPage() {
       setVerifyingDemo(false)
     } else {
       setIsDemoDialogOpen(false)
-      router.push(selectedDemoUser.roleUrl)
-      router.refresh()
+      window.location.href = selectedDemoUser.roleUrl
     }
   }
 
@@ -326,7 +342,7 @@ export default function LoginPage() {
             {activeTab === "login" && (
               <form onSubmit={onSubmit} className="space-y-4">
                 {error && (
-                  <div className="text-sm text-destructive font-medium text-center rounded-md bg-destructive/10 p-3">
+                  <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
                     {error}
                   </div>
                 )}
@@ -345,21 +361,10 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium leading-none" htmlFor="password">Password</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOtpEmail(email)
-                        setActiveTab("otp")
-                      }}
-                      className="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium underline"
-                    >
-                      Sign in with Email OTP
-                    </button>
                   </div>
                   <Input
                     id="password"
                     type="password"
-                    placeholder="ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -369,7 +374,7 @@ export default function LoginPage() {
                 <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" disabled={loading}>
                   {loading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in...
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...
                     </>
                   ) : (
                     "Sign In"
@@ -378,52 +383,37 @@ export default function LoginPage() {
               </form>
             )}
 
-            {/* TAB 2: Email OTP Sign-In */}
+            {/* TAB 2: Email OTP Login */}
             {activeTab === "otp" && (
               <div className="space-y-4">
                 {otpError && (
-                  <div className="text-sm text-destructive font-medium text-center rounded-md bg-destructive/10 p-3">
+                  <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
                     {otpError}
                   </div>
                 )}
 
-                {magicSent ? (
-                  <div className="text-center py-4 space-y-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4">
-                    <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-300 rounded-full flex items-center justify-center mx-auto text-lg font-bold">
-                      Γ£ô
-                    </div>
-                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">Check your inbox</h4>
-                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                      A magic sign-in link was dispatched to <strong>{otpEmail}</strong>. Click the link in your email to log in instantly.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setMagicSent(false)}
-                      className="text-xs text-emerald-600 hover:text-emerald-700 font-medium underline"
-                    >
-                      Enter 6-digit OTP code instead
-                    </button>
-                  </div>
-                ) : otpStep === "EMAIL" ? (
+                {otpStep === "EMAIL" ? (
                   <form onSubmit={onSendSignInOtp} className="space-y-4">
-                    <p className="text-xs text-muted-foreground">
-                      Enter your email address and we&apos;ll send you a 6-digit verification code to sign in without a password.
-                    </p>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium leading-none" htmlFor="otp-email">Email</label>
-                      <Input
-                        id="otp-email"
-                        type="email"
-                        placeholder="you@domain.com"
-                        value={otpEmail}
-                        onChange={(e) => {
-                          setOtpEmail(e.target.value)
-                          if (otpError) setOtpError("")
-                        }}
-                        required
-                        disabled={otpLoading}
-                      />
+                      <label className="text-sm font-medium leading-none" htmlFor="otp-email">Email Address</label>
+                      <div className="relative">
+                        <Input
+                          id="otp-email"
+                          type="email"
+                          placeholder="name@example.com"
+                          value={otpEmail}
+                          onChange={(e) => setOtpEmail(e.target.value)}
+                          required
+                          disabled={otpLoading}
+                          className="pl-9"
+                        />
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        We will send a 6-digit verification code to this email.
+                      </p>
                     </div>
+
                     <Button
                       type="submit"
                       className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -434,86 +424,70 @@ export default function LoginPage() {
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending Code...
                         </>
                       ) : (
-                        <>
-                          <Mail className="mr-2 h-4 w-4" /> Send Verification Code
-                        </>
+                        "Send Verification Code"
                       )}
                     </Button>
                   </form>
                 ) : (
                   <form onSubmit={onVerifySignInOtp} className="space-y-4">
-                    <div className="text-center space-y-1">
-                      <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-1">
-                        <Mail className="h-5 w-5" />
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        We sent a 6-digit verification code to <br />
-                        <strong className="text-foreground font-medium">{otpEmail}</strong>
-                      </p>
-                    </div>
-
-                    {devOtp && (
-                      <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs p-3 rounded-xl text-center">
-                        <p className="font-semibold mb-1">Development / Demo Code:</p>
-                        <span className="font-mono font-bold text-base tracking-widest bg-background/80 px-3 py-1 rounded-md border border-emerald-500/30">{devOtp}</span>
-                      </div>
-                    )}
-
                     <div className="space-y-2">
-                      <label className="text-sm font-medium leading-none text-center block" htmlFor="otp-code">
-                        Enter 6-Digit Code
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium leading-none" htmlFor="otp-code">Enter 6-Digit Code</label>
+                        <button
+                          type="button"
+                          onClick={() => setOtpStep("EMAIL")}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Change Email
+                        </button>
+                      </div>
+
                       <Input
                         id="otp-code"
-                        name="otp-code"
                         type="text"
                         inputMode="numeric"
-                        pattern="[0-9]{6}"
                         maxLength={6}
-                        placeholder="ΓÇó ΓÇó ΓÇó ΓÇó ΓÇó ΓÇó"
+                        placeholder="123456"
                         value={otpCode}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, "")
-                          setOtpCode(val)
-                          if (otpError) setOtpError("")
-                        }}
-                        autoFocus
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
                         required
                         disabled={otpLoading}
-                        className="text-center text-2xl font-mono tracking-[0.4em] py-5 font-bold"
+                        className="text-center tracking-widest text-lg font-mono font-bold"
+                        autoFocus
                       />
-                    </div>
 
-                    <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOtpStep("EMAIL")
-                          setOtpError("")
-                        }}
-                        className="hover:underline text-muted-foreground hover:text-foreground"
-                      >
-                        Change Email
-                      </button>
+                      {devOtp && (
+                        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs p-2.5 rounded-md flex items-center justify-between">
+                          <span>Demo mode active. Code: <strong>{devOtp}</strong></span>
+                          <button
+                            type="button"
+                            onClick={() => setOtpCode(devOtp)}
+                            className="text-[11px] bg-amber-500/20 hover:bg-amber-500/30 px-2 py-0.5 rounded font-semibold transition-colors"
+                          >
+                            Auto-Fill
+                          </button>
+                        </div>
+                      )}
 
-                      <button
-                        type="button"
-                        onClick={onResendSignInOtp}
-                        disabled={resendTimer > 0 || resending}
-                        className="text-emerald-600 hover:text-emerald-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                      >
-                        {resending ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin" /> Sending...
-                          </>
-                        ) : resendTimer > 0 ? (
-                          `Resend code in ${resendTimer}s`
-                        ) : (
-                          <>
-                            <RefreshCw className="h-3 w-3" /> Resend Code
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                        <span>Didn&apos;t receive it?</span>
+                        <button
+                          type="button"
+                          onClick={onResendSignInOtp}
+                          disabled={resendTimer > 0 || resending}
+                          className="text-primary hover:underline font-medium disabled:opacity-50 disabled:no-underline flex items-center gap-1"
+                        >
+                          {resending ? (
+                            <>
+                              <RefreshCw className="h-3 w-3 animate-spin" /> Resending...
+                            </>
+                          ) : resendTimer > 0 ? (
+                            `Resend in ${resendTimer}s`
+                          ) : (
+                            "Resend Code"
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     <Button
@@ -531,18 +505,6 @@ export default function LoginPage() {
                         </>
                       )}
                     </Button>
-
-                    <div className="text-center pt-1">
-                      <button
-                        type="button"
-                        onClick={onSendMagicLink}
-                        disabled={magicLoading}
-                        className="text-[11px] text-muted-foreground hover:text-foreground underline flex items-center justify-center gap-1 mx-auto"
-                      >
-                        <Sparkles className="h-3 w-3 text-emerald-500" />
-                        {magicLoading ? "Sending magic link..." : "Prefer a Magic Link? Click to send"}
-                      </button>
-                    </div>
                   </form>
                 )}
               </div>
@@ -555,26 +517,37 @@ export default function LoginPage() {
                 <div className="w-full space-y-2">
                   <p className="text-xs text-muted-foreground font-semibold flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <User className="h-3.5 w-3.5" /> Patients
+                      <User className="h-3.5 w-3.5 text-emerald-600" /> Patients
                     </span>
-                    <span className="flex items-center gap-1 text-[11px] font-normal text-muted-foreground/80">
-                      <Lock className="h-3 w-3" /> Password Protected
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      <Sparkles className="h-3 w-3" /> 1-Click Access
                     </span>
                   </p>
                   <div className="grid grid-cols-2 gap-2">
-                    {patients.map((p) => (
-                      <Button
-                        key={p.email}
-                        type="button"
-                        variant="outline"
-                        className={`text-xs py-2 h-auto flex items-center justify-between px-3 ${p.color ? colorMap[p.color] : ""}`}
-                        onClick={() => openDemoModal(p)}
-                        disabled={loading || verifyingDemo}
-                      >
-                        <span className="truncate">{p.name}</span>
-                        <Lock className="h-3 w-3 opacity-60 ml-1 shrink-0" />
-                      </Button>
-                    ))}
+                    {patients.map((p) => {
+                      const isSigningIn = signingInDemoEmail === p.email
+                      return (
+                        <Button
+                          key={p.email}
+                          type="button"
+                          variant="outline"
+                          className={`text-xs py-2.5 h-auto flex items-center justify-between px-3 transition-all ${p.color ? colorMap[p.color] : ""}`}
+                          onClick={() => handleDirectDemoSignIn(p)}
+                          disabled={loading || verifyingDemo || !!signingInDemoEmail}
+                        >
+                          {isSigningIn ? (
+                            <span className="flex items-center text-xs font-semibold">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Opening...
+                            </span>
+                          ) : (
+                            <>
+                              <span className="truncate font-medium">{p.name}</span>
+                              <ArrowRight className="h-3 w-3 opacity-60 ml-1 shrink-0" />
+                            </>
+                          )}
+                        </Button>
+                      )
+                    })}
                   </div>
                 </div>
 
@@ -582,26 +555,34 @@ export default function LoginPage() {
                 <div className="w-full space-y-2">
                   <p className="text-xs text-muted-foreground font-semibold flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <Stethoscope className="h-3.5 w-3.5" /> Doctor
+                      <Stethoscope className="h-3.5 w-3.5 text-blue-600" /> Doctor
                     </span>
-                    <span className="flex items-center gap-1 text-[11px] font-normal text-muted-foreground/80">
-                      <Lock className="h-3 w-3" /> Password Protected
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                      <Sparkles className="h-3 w-3" /> 1-Click Access
                     </span>
                   </p>
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800 flex items-center justify-between px-3"
-                    onClick={() => openDemoModal({
+                    className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 flex items-center justify-between px-3 py-2.5 h-auto transition-all"
+                    onClick={() => handleDirectDemoSignIn({
                       name: "Dr. Rahul Verma",
                       email: "doctor@demo.com",
                       role: "Doctor",
                       roleUrl: "/doctor/dashboard"
                     })}
-                    disabled={loading || verifyingDemo}
+                    disabled={loading || verifyingDemo || !!signingInDemoEmail}
                   >
-                    <span>Dr. Rahul Verma</span>
-                    <Lock className="h-3 w-3 opacity-60 shrink-0" />
+                    {signingInDemoEmail === "doctor@demo.com" ? (
+                      <span className="flex items-center text-xs font-semibold">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Opening Doctor Dashboard...
+                      </span>
+                    ) : (
+                      <>
+                        <span className="font-semibold">Dr. Rahul Verma</span>
+                        <ArrowRight className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                      </>
+                    )}
                   </Button>
                 </div>
 
@@ -609,26 +590,34 @@ export default function LoginPage() {
                 <div className="w-full space-y-2">
                   <p className="text-xs text-muted-foreground font-semibold flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <ShieldCheck className="h-3.5 w-3.5" /> Admin
+                      <ShieldCheck className="h-3.5 w-3.5 text-rose-600" /> Admin
                     </span>
-                    <span className="flex items-center gap-1 text-[11px] font-normal text-muted-foreground/80">
-                      <Lock className="h-3 w-3" /> Password Protected
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                      <Sparkles className="h-3 w-3" /> 1-Click Access
                     </span>
                   </p>
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800 flex items-center justify-between px-3"
-                    onClick={() => openDemoModal({
+                    className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800 flex items-center justify-between px-3 py-2.5 h-auto transition-all"
+                    onClick={() => handleDirectDemoSignIn({
                       name: "Super Admin",
                       email: "admin@teamqurix.com",
                       role: "Administrator",
                       roleUrl: "/admin"
                     })}
-                    disabled={loading || verifyingDemo}
+                    disabled={loading || verifyingDemo || !!signingInDemoEmail}
                   >
-                    <span>Super Admin</span>
-                    <Lock className="h-3 w-3 opacity-60 shrink-0" />
+                    {signingInDemoEmail === "admin@teamqurix.com" ? (
+                      <span className="flex items-center text-xs font-semibold">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Opening Admin...
+                      </span>
+                    ) : (
+                      <>
+                        <span className="font-semibold">Super Admin</span>
+                        <ArrowRight className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

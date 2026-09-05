@@ -180,15 +180,10 @@ export default function RegisterPage() {
       })
 
       if (!signInRes?.error) {
-        if (role === "DOCTOR") {
-          router.push("/doctor/dashboard")
-        } else {
-          router.push("/patient/dashboard")
-        }
+        window.location.href = role === "DOCTOR" ? "/doctor/dashboard" : "/patient/dashboard"
       } else {
-        router.push("/login?registered=true")
+        window.location.href = "/login?registered=true"
       }
-      router.refresh()
     } catch (err: any) {
       setError(err.message)
       setLoading(false)

@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { UploadCloud, FileText, Activity, AlertTriangle, CheckCircle2, Loader2, RefreshCw, Cpu, Stethoscope, Layers, ShieldCheck, Zap, Image as ImageIcon, Eye, X, Trash2, Calendar, Lock } from "lucide-react"
+import { UploadCloud, FileText, Activity, AlertTriangle, CheckCircle2, Loader2, RefreshCw, Cpu, Stethoscope, Layers, ShieldCheck, Zap, Image as ImageIcon, Eye, X, Trash2, Calendar } from "lucide-react"
 import { useSession } from "next-auth/react"
-import Link from "next/link"
 import { InteractiveScanViewer } from "@/components/InteractiveScanViewer"
 import DynamicScanReviewViewer from "@/components/DynamicScanReviewViewer"
 
@@ -24,13 +23,10 @@ export default function ScanAnalysisPage() {
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null)
 
   const { data: session } = useSession()
-  const isPremium = session?.user?.subscriptionTier === "QURIX_PLUS"
 
   useEffect(() => {
-    if (isPremium) {
-      fetchScans()
-    }
-  }, [isPremium])
+    fetchScans()
+  }, [])
 
   const fetchScans = async () => {
     try {
@@ -193,29 +189,7 @@ export default function ScanAnalysisPage() {
     return "bg-emerald-500"
   }
 
-  if (session && !isPremium) {
-    return (
-      <div className="max-w-7xl mx-auto mt-12 px-4 animate-in fade-in duration-300">
-        <div className="border border-indigo-500/30 rounded-3xl p-10 md:p-16 text-center bg-indigo-500/5 shadow-xl max-w-3xl mx-auto relative overflow-hidden backdrop-blur-sm">
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-            <Lock className="w-32 h-32 text-indigo-500" />
-          </div>
-          <div className="h-20 w-20 mx-auto rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white mb-6 shadow-lg shadow-indigo-500/30">
-            <Lock className="h-10 w-10" />
-          </div>
-          <h3 className="text-2xl md:text-3xl font-extrabold text-foreground mb-4">Advance Medical Scan is a QURIX Plus Feature</h3>
-          <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
-            Unlock the power of 3D Medical Scans and Advance Medical Scan Analysis (X-Rays, CT Scans, MRIs). Upgrade to QURIX Plus for just ₹129/month to get complete diagnostic visibility.
-          </p>
-          <Link href="/patient/qurix-plus">
-            <Button size="lg" className="h-14 px-8 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-lg shadow-xl shadow-indigo-500/20 transition-all hover:scale-105 active:scale-95">
-              Upgrade to QURIX Plus
-            </Button>
-          </Link>
-        </div>
-      </div>
-    )
-  }
+
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 mt-4 md:mt-8 px-3 sm:px-6 pb-16 animate-in fade-in duration-300">

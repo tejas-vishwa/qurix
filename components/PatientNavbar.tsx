@@ -8,7 +8,6 @@ import { usePathname } from "next/navigation"
 import { LayoutDashboard, LineChart, LogOut, UploadCloud, Calendar, Menu, X, ChevronRight, User, Pill, Activity } from "lucide-react"
 import { QurixLogo } from "@/components/QurixLogo"
 import { ThemeToggle } from "@/components/ThemeToggle"
-import { Sparkles } from "lucide-react"
 
 export function formatNameFromEmail(email?: string | null): string {
   if (!email || !email.includes("@")) return ""
@@ -215,11 +214,6 @@ export function PatientNavbar({ userName, userEmail, subscriptionTier }: Patient
           <ThemeToggle />
           <div className="flex items-center space-x-2 px-3 py-1.5 bg-primary/5 rounded-full border border-primary/10">
             <span className="text-sm font-medium">Hello, {greetingName}</span>
-            {subscriptionTier === "QURIX_PLUS" && (
-              <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-0.5 rounded-full shadow-sm">
-                <Sparkles className="h-3 w-3" /> Plus
-              </span>
-            )}
           </div>
           <UserButton afterSignOutUrl="/login" />
           <button
@@ -277,11 +271,6 @@ export function PatientNavbar({ userName, userEmail, subscriptionTier }: Patient
                 <p className="text-xs text-primary uppercase font-bold tracking-wider">Signed in as</p>
                 <div className="flex items-center gap-2">
                   <p className="text-lg font-extrabold text-foreground">{greetingName}</p>
-                  {subscriptionTier === "QURIX_PLUS" && (
-                    <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-0.5 rounded-full shadow-sm">
-                      <Sparkles className="h-3 w-3" /> Plus
-                    </span>
-                  )}
                 </div>
               </div>
             </div>

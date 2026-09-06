@@ -2,7 +2,7 @@ import { Navbar } from "@/components/Navbar"
 import { Footer } from "@/components/Footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ActivitySquare, FileText, LineChart, ShieldCheck, Stethoscope, UploadCloud, TestTube, QrCode, ArrowRight, CheckCircle2, Calendar, Smartphone, Sparkles } from "lucide-react"
+import { ActivitySquare, FileText, LineChart, ShieldCheck, Stethoscope, UploadCloud, TestTube, QrCode, ArrowRight, CheckCircle2, Calendar, Smartphone } from "lucide-react"
 import Link from "next/link"
 
 export default function Home() {
@@ -10,15 +10,6 @@ export default function Home() {
     <>
       <Navbar />
       <main className="flex-1">
-        {/* QURIX Plus Promo Banner */}
-        <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 text-white py-3 px-4 text-center shadow-md relative z-20">
-          <Link href="/patient/qurix-plus" className="flex items-center justify-center gap-2 text-sm md:text-base font-semibold hover:opacity-90 transition-opacity">
-            <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
-            <span>Unlock <strong className="text-amber-300">QURIX Plus</strong> for just Rs 29/month to access ADVANCE MEDICAL SCANS!</span>
-            <ArrowRight className="h-4 w-4 ml-1" />
-          </Link>
-        </div>
-
         {/* Hero Section */}
         <section className="relative py-20 md:py-32 overflow-hidden bg-gradient-to-b from-teal-500/10 via-background to-background">
           <div className="container px-4 md:px-6 max-w-6xl mx-auto text-center space-y-8">

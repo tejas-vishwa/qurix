@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Download, Search, FileX, Lock, AlertCircle, CheckCircle2, TrendingUp, TrendingDown } from "lucide-react"
+import { Download, Search, FileX, AlertCircle, CheckCircle2, TrendingUp, TrendingDown } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea } from 'recharts'
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -309,24 +309,14 @@ export function PatientTrendsDashboard({ accessCode }: { accessCode?: string }) 
           <p className="text-muted-foreground">Visualize your biomarker changes over time.</p>
         </div>
         <div className="flex items-center gap-2">
-          {session?.user?.paymentStatus === "ACTIVE" ? (
-            <Button 
-              onClick={generatePDF} 
-              disabled={loading || generatingPdf || trends.filter(t => t.history.length > 0).length === 0}
-              className="flex items-center gap-2 shadow-sm"
-            >
-              <Download className="h-4 w-4" />
-              {generatingPdf ? "Generating..." : "Download Report"}
-            </Button>
-          ) : (
-            <Button 
-              onClick={() => router.push("/patient/qurix-plus")} 
-              className="flex items-center gap-2 shadow-sm bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              <Lock className="h-4 w-4" />
-              Unlock Downloads
-            </Button>
-          )}
+          <Button 
+            onClick={generatePDF} 
+            disabled={loading || generatingPdf || trends.filter(t => t.history.length > 0).length === 0}
+            className="flex items-center gap-2 shadow-sm"
+          >
+            <Download className="h-4 w-4" />
+            {generatingPdf ? "Generating..." : "Download Report"}
+          </Button>
         </div>
       </div>
 

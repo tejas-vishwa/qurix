@@ -121,7 +121,7 @@ export function QurixLogo({ className = "h-8 w-auto", size, showTagline = false,
       </svg>
       
       {showTagline && (
-        <span className="hidden lg:inline-block text-xs font-semibold tracking-wider text-muted-foreground uppercase border-l border-border pl-3">
+        <span className="hidden xl:inline-block text-xs font-semibold tracking-wider text-muted-foreground uppercase border-l border-border pl-3">
           Health Ecosystem
         </span>
       )}

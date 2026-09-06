@@ -184,13 +184,13 @@ export function PatientNavbar({ userName, userEmail, subscriptionTier }: Patient
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-md">
-      <div className="container flex h-16 max-w-7xl mx-auto items-center justify-between px-4">
-        <Link href="/" className="flex items-center group transition-transform hover:scale-105">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between gap-4 lg:gap-8">
+        <Link href="/" className="flex items-center group shrink-0 transition-transform hover:scale-105">
           <QurixLogo className="h-7 md:h-8 w-auto" showTagline={true} />
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-6">
+        <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
@@ -198,34 +198,39 @@ export function PatientNavbar({ userName, userEmail, subscriptionTier }: Patient
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center text-sm font-medium transition-colors hover:text-primary ${
-                  isActive ? "text-primary" : "text-muted-foreground"
+                className={`flex items-center gap-2 px-2.5 xl:px-3.5 py-1.5 xl:py-2 rounded-xl text-xs xl:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
+                  isActive
+                    ? "bg-primary/10 text-primary font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
-                <Icon className="mr-2 h-4 w-4" />
-                {item.name}
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{item.name}</span>
               </Link>
             )
           })}
         </nav>
 
         {/* Desktop Right Controls */}
-        <div className="hidden md:flex items-center space-x-4">
+        <div className="hidden lg:flex items-center gap-3 shrink-0">
           <ThemeToggle />
-          <div className="flex items-center space-x-2 px-3 py-1.5 bg-primary/5 rounded-full border border-primary/10">
+          <div className="flex items-center space-x-2 px-3.5 py-1.5 bg-primary/5 rounded-full border border-primary/15 shrink-0 whitespace-nowrap">
             <span className="text-sm font-medium">Hello, {greetingName}</span>
           </div>
-          <UserButton afterSignOutUrl="/login" />
+          <div className="flex items-center shrink-0">
+            <UserButton afterSignOutUrl="/login" />
+          </div>
           <button
             onClick={handleSignOut}
-            className="flex items-center text-sm font-medium text-muted-foreground hover:text-destructive transition-colors"
+            className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-destructive transition-colors shrink-0 pl-3 border-l border-border/60"
           >
-            <LogOut className="mr-2 h-4 w-4" /> Sign out
+            <LogOut className="h-4 w-4" />
+            <span className="whitespace-nowrap">Sign out</span>
           </button>
         </div>
 
         {/* Mobile Right Controls & Menu Toggle */}
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="flex items-center gap-2 lg:hidden">
           <ThemeToggle />
           <button
             type="button"

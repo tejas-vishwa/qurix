@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getServerSession, authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma"
+import { ensureAppointmentSchema } from "@/lib/ensure-db-schema"
 
 export const dynamic = "force-dynamic"
 
@@ -18,6 +19,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   try {
+    await ensureAppointmentSchema().catch(() => {})
+
     const targetAppointment = await prisma.appointment.findUnique({
       where: { id }
     })

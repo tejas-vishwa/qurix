@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession, authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma"
 import { UpdateAppointmentStatusSchema, validateSchema } from "@/lib/validations"
+import { ensureAppointmentSchema } from "@/lib/ensure-db-schema"
 
 export const dynamic = "force-dynamic"
 
@@ -29,6 +30,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     const { status } = validation.data
+
+    await ensureAppointmentSchema().catch(() => {})
 
     const existingAppt = await prisma.appointment.findUnique({
       where: { id: resolvedParams.id, doctorId: session.user.id },

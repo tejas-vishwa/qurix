@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession, authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma"
 import { TelehealthJoinSchema, validateSchema } from "@/lib/validations"
+import { ensureAppointmentSchema } from "@/lib/ensure-db-schema"
 
 export async function POST(req: Request) {
   try {
@@ -22,6 +23,8 @@ export async function POST(req: Request) {
     }
 
     const { appointmentId } = validation.data
+
+    await ensureAppointmentSchema().catch(() => {})
 
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },

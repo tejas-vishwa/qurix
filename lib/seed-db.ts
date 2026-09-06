@@ -109,9 +109,19 @@ export async function createTablesIfNotExist() {
       "patientId" TEXT NOT NULL,
       "doctorId" TEXT NOT NULL,
       "scheduledTime" DATETIME NOT NULL,
+      "type" TEXT NOT NULL DEFAULT 'OFFLINE',
       "status" TEXT NOT NULL DEFAULT 'PENDING',
       "accessCode" TEXT,
+      "dailyRoomName" TEXT,
+      "dailyRoomUrl" TEXT,
+      "callStartedAt" DATETIME,
+      "callEndedAt" DATETIME,
+      "callDurationSec" INTEGER,
+      "transcript" TEXT,
+      "aiSummary" TEXT,
+      "scribeStatus" TEXT DEFAULT 'PENDING',
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME,
       FOREIGN KEY ("patientId") REFERENCES "User" ("id") ON DELETE CASCADE,
       FOREIGN KEY ("doctorId") REFERENCES "User" ("id") ON DELETE CASCADE
     );`,
@@ -201,7 +211,42 @@ export async function createTablesIfNotExist() {
     `ALTER TABLE "LabPartner" ADD COLUMN "registrationNo" TEXT;`,
     `ALTER TABLE "LabPartner" ADD COLUMN "certificationUrl" TEXT;`,
     `ALTER TABLE "LabPartner" ADD COLUMN "operationalScope" TEXT;`,
-    `ALTER TABLE "LabPartner" ADD COLUMN "accountStatus" TEXT NOT NULL DEFAULT 'pending';`
+    `ALTER TABLE "LabPartner" ADD COLUMN "accountStatus" TEXT NOT NULL DEFAULT 'pending';`,
+    `ALTER TABLE "Appointment" ADD COLUMN "type" TEXT DEFAULT 'OFFLINE';`,
+    `ALTER TABLE "Appointment" ADD COLUMN "updatedAt" DATETIME;`,
+    `ALTER TABLE "Appointment" ADD COLUMN "dailyRoomName" TEXT;`,
+    `ALTER TABLE "Appointment" ADD COLUMN "dailyRoomUrl" TEXT;`,
+    `ALTER TABLE "Appointment" ADD COLUMN "callStartedAt" DATETIME;`,
+    `ALTER TABLE "Appointment" ADD COLUMN "callEndedAt" DATETIME;`,
+    `ALTER TABLE "Appointment" ADD COLUMN "callDurationSec" INTEGER;`,
+    `ALTER TABLE "Appointment" ADD COLUMN "transcript" TEXT;`,
+    `ALTER TABLE "Appointment" ADD COLUMN "aiSummary" TEXT;`,
+    `ALTER TABLE "Appointment" ADD COLUMN "scribeStatus" TEXT DEFAULT 'PENDING';`,
+    `CREATE TABLE IF NOT EXISTS "ConsultationTranscriptSegment" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "appointmentId" TEXT NOT NULL,
+      "speaker" TEXT NOT NULL,
+      "text" TEXT NOT NULL,
+      "confidence" REAL,
+      "startMs" INTEGER,
+      "endMs" INTEGER,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY ("appointmentId") REFERENCES "Appointment" ("id") ON DELETE CASCADE
+    );`,
+    `CREATE TABLE IF NOT EXISTS "MedicationReminder" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "appointmentId" TEXT NOT NULL,
+      "patientId" TEXT NOT NULL,
+      "drugName" TEXT NOT NULL,
+      "dosage" TEXT NOT NULL,
+      "frequency" TEXT NOT NULL,
+      "duration" TEXT NOT NULL,
+      "nextDoseAt" DATETIME,
+      "isActive" BOOLEAN NOT NULL DEFAULT 1,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY ("appointmentId") REFERENCES "Appointment" ("id") ON DELETE CASCADE,
+      FOREIGN KEY ("patientId") REFERENCES "User" ("id") ON DELETE CASCADE
+    );`
   ]
 
   for (const statement of ddlStatements) {

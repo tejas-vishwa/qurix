@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession, authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { BookAppointmentSchema, validateSchema } from "@/lib/validations"
+import { ensureAppointmentSchema } from "@/lib/ensure-db-schema"
 
 export const dynamic = "force-dynamic"
 
@@ -112,6 +113,9 @@ export async function POST(req: Request) {
       )
     }
 
+    // Ensure database schema has all required columns
+    await ensureAppointmentSchema().catch(() => {})
+
     let accessCode = null
     if (preUploadData) {
       // Revoke old codes and generate a new one
@@ -138,25 +142,39 @@ export async function POST(req: Request) {
       }).catch(() => {})
     }
 
-    const appointment = await prisma.appointment.create({
-      data: {
-        patientId,
-        doctorId: effectiveDoctorId,
-        scheduledTime,
-        type: type || "OFFLINE",
-        accessCode,
-      },
-      include: {
-        doctor: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            doctorProfile: true,
-          },
+    const createPayload = {
+      patientId,
+      doctorId: effectiveDoctorId,
+      scheduledTime,
+      type: type || "OFFLINE",
+      accessCode,
+    }
+
+    const includePayload = {
+      doctor: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          doctorProfile: true,
         },
       },
-    })
+    }
+
+    let appointment
+    try {
+      appointment = await prisma.appointment.create({
+        data: createPayload,
+        include: includePayload,
+      })
+    } catch (createErr: any) {
+      console.warn("Appointment creation initial attempt failed, triggering schema migration:", createErr?.message)
+      await ensureAppointmentSchema(true).catch(() => {})
+      appointment = await prisma.appointment.create({
+        data: createPayload,
+        include: includePayload,
+      })
+    }
 
     return NextResponse.json({ success: true, appointment })
   } catch (error: any) {
@@ -175,6 +193,8 @@ export async function GET(req: Request) {
   }
 
   try {
+    await ensureAppointmentSchema().catch(() => {})
+
     const user = await prisma.user.findFirst({
       where: {
         OR: [

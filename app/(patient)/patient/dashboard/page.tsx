@@ -29,14 +29,19 @@ export default async function PatientDashboard() {
     const [reportsResult, metricsResult, codeResult] = await Promise.allSettled([
       prisma.report.findMany({
         where: { patientId: userId },
-        orderBy: { reportDate: 'desc' },
+        orderBy: [{ reportDate: 'desc' }, { createdAt: 'desc' }],
         take: 5
       }),
       prisma.extractedMetric.findMany({
         where: {
           report: {
             patientId: userId,
-            reportDate: { gte: ninetyDaysAgo }
+            // Include metrics from reports in last 90 days OR reports with no parsed date
+            // (null reportDate means OCR couldn't extract it — fall back to createdAt window)
+            OR: [
+              { reportDate: { gte: ninetyDaysAgo } },
+              { reportDate: null, createdAt: { gte: ninetyDaysAgo } }
+            ]
           }
         },
         include: {
@@ -44,7 +49,7 @@ export default async function PatientDashboard() {
           report: true
         },
         orderBy: {
-          report: { reportDate: 'desc' }
+          report: { createdAt: 'desc' }
         }
       }),
       prisma.doctorAccessCode.findFirst({
@@ -52,6 +57,7 @@ export default async function PatientDashboard() {
         orderBy: { createdAt: 'desc' }
       })
     ])
+
 
     if (reportsResult.status === "fulfilled") reports = reportsResult.value
     if (metricsResult.status === "fulfilled") recentMetrics = metricsResult.value

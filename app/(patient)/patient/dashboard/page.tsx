@@ -151,14 +151,12 @@ export default async function PatientDashboard() {
               <ul className="space-y-4">
                 {criticalAlerts.map((alert, i) => (
                   <li key={`crit-${i}`} className="bg-red-100 dark:bg-red-900/40 p-3 rounded-md text-sm border border-red-200 dark:border-red-800">
-                    <span className="font-bold text-red-700 dark:text-red-400">{alert.urgent_warning}</span> <br/>
-                    <span className="text-muted-foreground mt-1 block">Result: {alert.result}</span>
+                    <span className="font-bold text-red-700 dark:text-red-400">{alert.urgent_warning}</span>
                   </li>
                 ))}
                 {standardIssues.map((alert, i) => (
                   <li key={`std-${i}`} className="bg-amber-50 dark:bg-amber-950/30 p-3 rounded-md text-sm border border-amber-100 dark:border-amber-900">
-                    <span className="font-semibold text-amber-800 dark:text-amber-400">Attention needed:</span> {alert.advice} <br/>
-                    <span className="text-muted-foreground mt-1 block">Result: {alert.result}</span>
+                    <span className="font-semibold text-amber-800 dark:text-amber-400">Attention needed:</span> {alert.advice}
                   </li>
                 ))}
               </ul>

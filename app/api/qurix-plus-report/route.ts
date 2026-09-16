@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server"
 import { getServerSession, authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { GoogleGenAI } from "@google/genai"
 
 export const dynamic = "force-dynamic"
+export const maxDuration = 60 // allow up to 60s for Gemini call
+
 
 function generateGaugePosition(value: number, refMin: number | null, refMax: number | null): number {
   const min = refMin ?? 0
@@ -131,7 +134,7 @@ export async function GET() {
       day: "numeric", month: "long", year: "numeric"
     })
 
-    // Fetch all extracted metrics for this user (all time)
+    // Fetch all extracted metrics for this user (all time, for gauge/counts)
     const metrics = await prisma.extractedMetric.findMany({
       where: { report: { patientId: userId } },
       include: {
@@ -195,6 +198,114 @@ export async function GET() {
     const sortedCategories = Array.from(byCategory.entries()).sort(([, a], [, b]) =>
       b.filter(x => x.severity === "CRITICAL").length - a.filter(x => x.severity === "CRITICAL").length
     )
+
+    // ── Fetch last 90 days of ALL readings per biomarker (for trend analysis) ──
+    const cutoff90 = new Date()
+    cutoff90.setDate(cutoff90.getDate() - 90)
+
+    const trend90Metrics = await prisma.extractedMetric.findMany({
+      where: {
+        report: {
+          patientId: userId,
+          reportDate: { gte: cutoff90 }
+        }
+      },
+      include: {
+        biomarker: { select: { displayName: true, code: true, unit: true, refMin: true, refMax: true } },
+        report: { select: { reportDate: true } }
+      },
+      orderBy: { report: { reportDate: "asc" } }
+    })
+
+    // Group readings per biomarker for trend text
+    const trendsByCode = new Map<string, { name: string, unit: string, refMin: number | null, refMax: number | null, readings: { date: string, value: number }[] }>()
+    for (const m of trend90Metrics) {
+      const code = m.biomarker.code
+      if (!trendsByCode.has(code)) {
+        trendsByCode.set(code, {
+          name: m.biomarker.displayName,
+          unit: m.biomarker.unit,
+          refMin: m.refMin ?? m.biomarker.refMin ?? null,
+          refMax: m.refMax ?? m.biomarker.refMax ?? null,
+          readings: []
+        })
+      }
+      trendsByCode.get(code)!.readings.push({
+        date: m.report.reportDate?.toISOString().split("T")[0] ?? "unknown",
+        value: m.value
+      })
+    }
+
+    // Build compact trend summary strings for Gemini (only biomarkers with >1 reading to show direction)
+    const trendSummaryLines: string[] = []
+    for (const [, t] of trendsByCode) {
+      if (t.readings.length === 0) continue
+      const first = t.readings[0]
+      const last = t.readings[t.readings.length - 1]
+      const direction = last.value > first.value ? "↑ increasing" : last.value < first.value ? "↓ decreasing" : "→ stable"
+      const refStr = t.refMin !== null && t.refMax !== null
+        ? `ref: ${t.refMin}–${t.refMax}`
+        : t.refMax !== null ? `ref: <${t.refMax}` : t.refMin !== null ? `ref: >${t.refMin}` : ""
+      trendSummaryLines.push(
+        `${t.name}: latest=${last.value} ${t.unit} (${direction} from ${first.value} on ${first.date}) ${refStr}`
+      )
+    }
+
+    // ── Fetch prescriptions ──
+    const prescriptions = await prisma.prescription.findMany({
+      where: { patientId: userId },
+      select: { doctorName: true, medicinesJson: true, symptomsJson: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 5
+    })
+
+    const prescriptionLines: string[] = prescriptions.map(p => {
+      const meds = p.medicinesJson ? (() => { try { return JSON.parse(p.medicinesJson!).map((m: any) => `${m.name}${m.dosage ? ` ${m.dosage}` : ""}${m.frequency ? ` ${m.frequency}` : ""}`).join(", ") } catch { return p.medicinesJson } })() : "N/A"
+      const symptoms = p.symptomsJson ? (() => { try { return JSON.parse(p.symptomsJson!) } catch { return p.symptomsJson } })() : "N/A"
+      return `Rx by ${p.doctorName ?? "Unknown Doctor"} (${p.createdAt.toISOString().split("T")[0]}): Medicines=[${meds}], Symptoms/Diagnosis=${symptoms}`
+    })
+
+    // ── Call Gemini for AI Clinical Analysis ──
+    let aiAnalysis = ""
+    try {
+      const apiKey = process.env.GEMINI_API_KEY
+      if (apiKey && (trendSummaryLines.length > 0 || prescriptionLines.length > 0)) {
+        const ai = new GoogleGenAI({ apiKey })
+        const prompt = `You are a senior clinical analyst writing a comprehensive but concise health analysis for a patient's personal health report. Do NOT use markdown formatting, bullet points, or asterisks. Use plain paragraph text only. Write in a professional, empathetic, and informative tone.
+
+Patient: ${userName}${user?.age ? `, Age: ${user.age}` : ""}${user?.gender ? `, Gender: ${user.gender}` : ""}
+Report Date: ${dateGenerated}
+
+BIOMARKER TRENDS (Last 90 Days):
+${trendSummaryLines.length > 0 ? trendSummaryLines.join("\n") : "No trend data available for the last 90 days."}
+
+RECENT PRESCRIPTIONS & DIAGNOSES:
+${prescriptionLines.length > 0 ? prescriptionLines.join("\n") : "No prescription data found."}
+
+Write a clinical analysis in 4–5 paragraphs covering:
+1. Overall health status summary based on trends
+2. Key areas of concern (specifically name the abnormal biomarkers and what they may indicate)
+3. Correlation between prescriptions/diagnoses and the biomarker trends
+4. Specific actionable recommendations (lifestyle, follow-up tests, urgency of doctor visit)
+5. Positive observations and what the patient is doing well
+
+Keep each paragraph 3–4 sentences. Do not use any markdown, bullet points, or formatting symbols.`
+
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt
+        })
+        aiAnalysis = response.text?.trim() ?? ""
+      }
+    } catch (aiErr) {
+      console.error("Gemini AI analysis failed:", aiErr)
+      aiAnalysis = ""
+    }
+
+    // Split AI analysis into paragraphs for HTML rendering
+    const aiParagraphs = aiAnalysis
+      ? aiAnalysis.split(/\n+/).filter(p => p.trim().length > 0)
+      : []
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -265,6 +376,10 @@ export async function GET() {
     .all-clear h2 { font-size: 20px; font-weight: 800; color: var(--optimal); margin-bottom: 8px; }
     .all-clear p { font-size: 13px; color: var(--text-muted); }
     .action-button { display: inline-flex; align-items: center; gap: 5px; background: var(--primary-dark); color: white !important; padding: 10px 20px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none; margin-top: 10mm; }
+    .ai-badge { display: inline-flex; align-items: center; gap: 6px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 10px; font-weight: 600; padding: 6px 12px; border-radius: 20px; margin-bottom: 8mm; }
+    .ai-analysis-body { margin-bottom: 8mm; }
+    .ai-para { font-size: 13px; line-height: 1.75; color: var(--text-main); margin-bottom: 5mm; text-align: justify; }
+    .disclaimer-box { background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 15px; font-size: 11px; color: #92400e; line-height: 1.5; margin-top: 8mm; }
   </style>
 </head>
 <body>
@@ -332,6 +447,66 @@ export async function GET() {
       <div>${patientId} &middot; ${dateGenerated}</div>
     </div>
   </div>
+
+  ${aiParagraphs.length > 0 ? `
+  <!-- PAGE 2: AI Clinical Analysis -->
+  <div class="a4-page">
+    <div class="header no-break">
+      <div class="header-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+        </svg>
+        <div>
+          <div class="brand-title">QURIX Plus</div>
+          <div class="brand-subtitle">AI Clinical Analysis</div>
+        </div>
+      </div>
+      <div class="patient-meta">
+        <h2>${userName}</h2>
+        <p>ID: ${patientId}</p>
+        <p>Generated: ${dateGenerated}</p>
+      </div>
+    </div>
+
+    <div class="content">
+      <h1 class="report-title">AI Clinical Analysis</h1>
+      <p class="report-desc">
+        The following analysis was generated by the QURIX AI engine using your last 90 days of biomarker trends
+        and prescription history. This is not a substitute for professional medical advice.
+      </p>
+
+      <div class="ai-badge">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        Powered by Gemini AI &middot; Based on ${trendSummaryLines.length} biomarker trends &middot; ${prescriptionLines.length} prescription(s)
+      </div>
+
+      <div class="ai-analysis-body">
+        ${aiParagraphs.map(para => `<p class="ai-para">${para}</p>`).join("")}
+      </div>
+
+      <div class="disclaimer-box">
+        <strong>Medical Disclaimer:</strong> This AI-generated analysis is for informational purposes only and does not
+        constitute medical advice, diagnosis, or treatment. Always consult a qualified healthcare professional before
+        making any health decisions based on this report.
+      </div>
+
+      <a href="https://qurix.netlify.app/patient/dashboard" class="action-button no-break" target="_blank">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+        Consult a Doctor via QURIX Portal
+      </a>
+    </div>
+
+    <div class="footer no-break">
+      <div>QURIX AI Analysis &middot; Gemini 2.5 Flash &middot; For personal use only.</div>
+      <div>${patientId} &middot; ${dateGenerated}</div>
+    </div>
+  </div>
+  ` : ""}
+
   <script>
     window.onload = function() { setTimeout(function() { window.print(); }, 600); };
   </script>

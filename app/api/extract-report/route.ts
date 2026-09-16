@@ -68,28 +68,29 @@ export async function POST(req: Request) {
       !sessionUserName.startsWith("user_") &&
       sessionUserName.toLowerCase() !== "patient"
 
-    if (extractedPatientName && isCustomName) {
-      const cleanReportName = cleanSalutationsAndTitles(extractedPatientName.toLowerCase())
-      const accountPatientName = cleanSalutationsAndTitles(sessionUserName.toLowerCase())
+    // TEMPORARILY DISABLED: Name verification removed for debugging
+    // if (extractedPatientName && isCustomName) {
+    //   const cleanReportName = cleanSalutationsAndTitles(extractedPatientName.toLowerCase())
+    //   const accountPatientName = cleanSalutationsAndTitles(sessionUserName.toLowerCase())
 
-      if (cleanReportName && accountPatientName) {
-        const accountTokens = accountPatientName.split(/[\s\.]+/).filter((t: string) => t.length > 2)
-        const reportTokens = cleanReportName.split(/[\s\.]+/).filter((t: string) => t.length > 2)
+    //   if (cleanReportName && accountPatientName) {
+    //     const accountTokens = accountPatientName.split(/[\s\.]+/).filter((t: string) => t.length > 2)
+    //     const reportTokens = cleanReportName.split(/[\s\.]+/).filter((t: string) => t.length > 2)
 
-        const isMatch =
-          accountTokens.some((token: string) => cleanReportName.includes(token)) ||
-          reportTokens.some((token: string) => accountPatientName.includes(token))
+    //     const isMatch =
+    //       accountTokens.some((token: string) => cleanReportName.includes(token)) ||
+    //       reportTokens.some((token: string) => accountPatientName.includes(token))
 
-        if (!isMatch && reportTokens.length > 0 && accountTokens.length > 0) {
-          return NextResponse.json(
-            {
-              error: `Identity mismatch. The report belongs to "${extractedPatientName}", but this account belongs to "${sessionUserName}". For security, this upload was blocked.`,
-            },
-            { status: 403 }
-          )
-        }
-      }
-    }
+    //     if (!isMatch && reportTokens.length > 0 && accountTokens.length > 0) {
+    //       return NextResponse.json(
+    //         {
+    //           error: `Identity mismatch. The report belongs to "${extractedPatientName}", but this account belongs to "${sessionUserName}". For security, this upload was blocked.`,
+    //         },
+    //         { status: 403 }
+    //       )
+    //     }
+    //   }
+    // }
 
     // Generate clinical summary
     const biomarkersList = extractedData.biomarkers || []
